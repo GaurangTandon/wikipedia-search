@@ -19,4 +19,8 @@ https://github.com/VatsalSoni301/Wikipedia_Search_Engine
 
 Is of two types: DOM and SAX. DOM parser first builds the complete in-memory representation of the XML file, and then allows you to iterate through its nodes. This consumes a lot of memory if the file is large. Examples: RapidXML, TinyXML, PugiXML.
 
-SAX parser (Simple API for XML) is an event-driven online approach where handlers keep getting called as the parser is iterating through the file, like startElement, endElement, seenCharacter, etc.
+SAX parser (Simple API for XML) is an event-driven online approach where handlers keep getting called as the parser is iterating through the file, like startElement, endElement, seenCharacter, etc. They consume much less memory. Examples: expat2
+
+See: https://stackoverflow.com/questions/4684440, https://stackoverflow.com/questions/31858466, https://stackoverflow.com/questions/1006543/
+
+Tutorial on libstudxml: https://www.codesynthesis.com/projects/libstudxml/doc/intro.xhtml#3
