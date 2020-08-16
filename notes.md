@@ -14,3 +14,9 @@ https://github.com/VatsalSoni301/Wikipedia_Search_Engine
 6. For tokenization, use: https://github.com/OpenNMT/Tokenizer
 7. c++ NLP libraries list: https://www.linuxlinks.com/excellent-c-plus-plus-natural-language-processing-tools/
 8. can also do multi-threading, see ayushidalmia stuff
+
+## parsing
+
+Is of two types: DOM and SAX. DOM parser first builds the complete in-memory representation of the XML file, and then allows you to iterate through its nodes. This consumes a lot of memory if the file is large. Examples: RapidXML, TinyXML, PugiXML.
+
+SAX parser (Simple API for XML) is an event-driven online approach where handlers keep getting called as the parser is iterating through the file, like startElement, endElement, seenCharacter, etc.
