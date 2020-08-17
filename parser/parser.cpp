@@ -27,6 +27,7 @@ public:
                     if (p.name() == "title") {
                         inText = true;
                     }
+        p.attribute_map();
                     break;
                 case xml::parser::end_element:
                     if (p.name() == "title") {
@@ -60,10 +61,12 @@ public:
 class WikiSiteInfo {
 public:
     WikiSiteInfo (xml::parser &p) {
-        p.next_expect(xml::parser::start_element, NS, "siteinfo");
-        p.attribute_map();
+        p.next_expect(xml::parser::start_element, NS, "siteinfo", xml::content::complex);
 
         for (auto e : p) {
+            if (e == xml::parser::start_element) {
+                p.attribute_map();
+            }
             if (e == xml::parser::end_element) {
                 if (p.name() == "siteinfo") return;
             }
@@ -88,7 +91,7 @@ public:
     }
 };
 
-const std::string filePath = "mvce.xml";
+const std::string filePath = "small.xml";
 
 int main() {
 //    try {
