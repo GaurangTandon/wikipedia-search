@@ -24,11 +24,10 @@ public:
                     if (p.name() == "title") {
                         inTitle = true;
                     }
-                    if (p.name() == "title") {
+                    if (p.name() == "text") {
                         inText = true;
                     }
-        p.attribute_map();
-                    break;
+                   break;
                 case xml::parser::end_element:
                     if (p.name() == "title") {
                         inTitle = false;
@@ -65,7 +64,6 @@ public:
 
         for (auto e : p) {
             if (e == xml::parser::start_element) {
-                p.attribute_map();
             }
             if (e == xml::parser::end_element) {
                 if (p.name() == "siteinfo") return;
@@ -81,7 +79,6 @@ class WikiObject {
 public:
     WikiObject(xml::parser &p) {
         p.next_expect(xml::parser::start_element, NS, "mediawiki", xml::content::complex);
-        p.attribute_map();
 
         new WikiSiteInfo(p);
 
@@ -97,7 +94,8 @@ int main() {
 //    try {
         std::ifstream ifs(filePath);
         // our xml is in the namespace denoted by the xmlns attribute in the XML file
-        xml::parser p(ifs, filePath);
+        // we don't want attributes or namespace declarations
+        xml::parser p(ifs, filePath, xml::parser::receive_characters | xml::parser::receive_elements);
         // if you put the receive_namespace_decls flag in the parser argument, it will start receiving
         // namespace decls also, which may be desirable, but for now, skip it and hardcode the namespace
         new WikiObject(p);
