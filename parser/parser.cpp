@@ -2,12 +2,20 @@
 #include<string>
 #include<iostream>
 #include<fstream>
+#include <time.h>
 
 /*
  * next_expect(): if `content` argument is set, then event type must be start element
  */
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
+struct timespec *st = new timespec(), *et = new timespec();
+
+class WikiPage;
+constexpr int MX_MEM = 5000;
+WikiPage* mem[MX_MEM];
+int curr = 0;
+
 
 class WikiPage {
 public:
@@ -36,7 +44,7 @@ public:
                         inText = false;
                     }
                     if (p.name() == "page") {
-                        std::cout << title << " " << text << std::endl;
+                        cleanup();
                         return;
                     }
                     break;
@@ -52,6 +60,9 @@ public:
                     break;
             }
         }
+    }
+
+    void cleanup() {
     }
 };
 
@@ -82,16 +93,24 @@ public:
 
         new WikiSiteInfo(p);
 
-        while (p.peek() == xml::parser::start_element) new WikiPage(p);
+        while (p.peek() == xml::parser::start_element) {
+            auto page = new WikiPage(p);
+            mem[curr++] = page;
+            if (curr == MX_MEM) {
+                return;
+            }
+        }
 
         p.next_expect(xml::parser::end_element, NS, "mediawiki");
     }
 };
 
-const std::string filePath = "small.xml";
+const std::string filePath = "medium.xml";
 
 int main() {
-//    try {
+    clock_gettime(CLOCK_MONOTONIC, st);
+
+    try {
         std::ifstream ifs(filePath);
         // our xml is in the namespace denoted by the xmlns attribute in the XML file
         // we don't want attributes or namespace declarations
@@ -99,9 +118,18 @@ int main() {
         // if you put the receive_namespace_decls flag in the parser argument, it will start receiving
         // namespace decls also, which may be desirable, but for now, skip it and hardcode the namespace
         new WikiObject(p);
-//    } catch (xml::parsing &e) {
-//        std::cout << e.what() << std::endl;
-//        return 1;
-//    }
+    } catch (xml::parsing &e) {
+        std::cout << e.what() << std::endl;
+        return 1;
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, et);
+    long double time = (et->tv_sec - st->tv_sec) + 1e-9l * (et->tv_nsec - st->tv_nsec);
+    std::cout << "Exhausted reading " << curr << " records in time " << time << std::endl;
+    for (auto page : mem) {
+        if (not page) break;
+        std::cout << page->title << " " << page->text.size() << std::endl;
+    }
+
     return 0;
 }
