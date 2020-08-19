@@ -73,26 +73,6 @@ public:
     }
 };
 
-//void extractData (WikiPage *page) {
-//    std::vector<std::string> lines;
-//    auto &text = page->text;
-//
-//    char delimiter = '\n';
-//    int prev = 0;
-//    int pos;
-//
-//#define newline(x) if (not part.empty()) lines.push_back(part);
-//
-//    while ((pos = text.find(delimiter, prev)) == std::string::npos) {
-//        auto part = text.substr(prev, pos - prev);
-//        newline(part);
-//        prev = pos + 1;
-//    }
-//
-//    auto part = text.substr(prev);
-//    newline(part);
-//}
-
 const std::string INFOBOX = "{{Infobox";
 const std::string CATEGORY = "[[category";
 
