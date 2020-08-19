@@ -7,4 +7,5 @@ include_directories(parser)
 include_directories(rapidxml)
 
 add_executable(wikipedia_search
-        parser/parser.cpp)
+        parser/parser.cpp
+        preprocess/preprocess.cpp)
