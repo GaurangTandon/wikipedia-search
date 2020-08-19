@@ -1,0 +1,1 @@
+ g++ parser/parser.cpp /usr/local/lib/libstudxml.a -g && ./a.out

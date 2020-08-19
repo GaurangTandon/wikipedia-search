@@ -169,7 +169,7 @@ long double timer;
     clock_gettime(CLOCK_MONOTONIC, et); \
     timer = (et->tv_sec - st->tv_sec) + 1e-9l * (et->tv_nsec - st->tv_nsec);
 
-void checkpoint(bool is_last = false) {
+bool checkpoint() {
     end_time
     curr_check++;
 
@@ -197,14 +197,18 @@ void checkpoint(bool is_last = false) {
     end_time
 
     for (int i = 0; i < curr; i++) {
-        free(mem[i]);
+        delete mem[i];
     }
 
     curr = 0;
 
-    if (curr_check == MAX_CHECK or is_last) exit(0);
+    if (curr_check == MAX_CHECK) {
+        return false;
+    }
 
     start_time;
+
+    return true;
 }
 
 
@@ -213,23 +217,30 @@ public:
     WikiObject(xml::parser &p) {
         p.next_expect(xml::parser::start_element, NS, "mediawiki", xml::content::complex);
 
-        new WikiSiteInfo(p);
+        auto wsi = new WikiSiteInfo(p);
+        bool interrupted = false;
 
         start_time
+
         while (p.peek() == xml::parser::start_element) {
             auto page = new WikiPage(p);
             mem[curr++] = page;
 
             if (curr == MX_MEM) {
-                checkpoint();
+                if (not checkpoint()) {
+                    interrupted = true;
+                    break;
+                }
             }
         }
 
-        p.next_expect(xml::parser::end_element, NS, "mediawiki");
+        if (not interrupted) p.next_expect(xml::parser::end_element, NS, "mediawiki");
+
+        delete wsi;
     }
 };
 
-const std::string filePath = "large.xml";
+const std::string filePath = "parser/large.xml";
 
 int main() {
     try {
@@ -245,9 +256,12 @@ int main() {
 
         // if you put the receive_namespace_decls flag in the parser argument, it will start receiving
         // namespace decls also, which may be desirable, but for now, skip it and hardcode the namespace
-        new WikiObject(p);
 
-        checkpoint(true);
+        auto wo = new WikiObject(p);
+
+        checkpoint();
+
+        delete wo;
     } catch (xml::parsing &e) {
         std::cout << e.what() << std::endl;
         return 1;
