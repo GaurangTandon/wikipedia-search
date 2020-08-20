@@ -4,7 +4,7 @@ project(wikipedia_search)
 set(CMAKE_CXX_STANDARD 14)
 
 include_directories(parser)
-include_directories(rapidxml)
+include_directories(libstemmer_c)
 
 add_executable(wikipedia_search
         parser/parser.cpp

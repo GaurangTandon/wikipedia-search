@@ -13,6 +13,8 @@
 #define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << std::endl;
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
+const std::string filePath = "parser/large.xml";
+
 struct timespec *st = new timespec(), *et = new timespec();
 constexpr int MAX_CHECK = 5;
 int curr_check = 0;
@@ -187,6 +189,12 @@ bool checkpoint() {
         extractData(page);
 
         if ((i + 1) % LOG_POINT == 0) {
+            // use this to print
+            // std::cout << page->title << std::endl;
+            // for (auto word : page->bodyText) {
+            //     std::cout << word << std::endl;
+            // }
+
             end_time
             std::cout << "Read " << LOG_POINT << " records with total length " << sum << " in time " << timer << std::endl;
             sum = 0;
@@ -240,7 +248,6 @@ public:
     }
 };
 
-const std::string filePath = "parser/large.xml";
 
 int main() {
     try {

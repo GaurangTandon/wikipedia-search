@@ -2,7 +2,7 @@
 #include<vector>
 #include<locale>
 #include <assert.h>
-#include <istream>
+#include <iostream>
 #include <fstream>
 #include "../libstemmer_c/include/libstemmer.h"
 
@@ -12,7 +12,11 @@ public:
     std::vector<std::string> stopwords;
 
     Preprocessor() {
-        stemmer = sb_stemmer_new("porter2", nullptr);
+        // const char** list = sb_stemmer_list();
+        // there is porter2 in this
+
+        stemmer = sb_stemmer_new("porter", nullptr);
+        assert(stemmer != nullptr);
         std::ifstream stopwords_file("stopwords.txt");
         int count;
         stopwords_file >> count;
@@ -90,6 +94,8 @@ public:
             if (not isStopword(word, len)) {
                 stemmedTokens.push_back(stemming(word, word_len));
             }
+
+            free(word);
 
             left = right + 1;
         }
