@@ -75,6 +75,7 @@ public:
 
 const std::string INFOBOX = "{{Infobox";
 const std::string CATEGORY = "[[category";
+Preprocessor* processor;
 
 int extractInfobox(WikiPage *page, const std::string &text, int start) {
     int cnt = 0;
@@ -100,7 +101,7 @@ int extractInfobox(WikiPage *page, const std::string &text, int start) {
     // start..end is inclusive
     auto infobox = text.substr(start, end + 1);
 
-    page->infobox = processText(infobox);
+    page->infobox = processor->processText(infobox);
 
     return end;
 }
@@ -120,7 +121,7 @@ int extractCategory(WikiPage *page, const std::string &text, int start) {
 
     auto category = text.substr(start + CATEGORY.size(), end + 1);
 
-    auto tokens = processText(category);
+    auto tokens = processor->processText(category);
     page->category.insert(page->category.end(), tokens.begin(), tokens.end());
 
     return end;
@@ -128,20 +129,19 @@ int extractCategory(WikiPage *page, const std::string &text, int start) {
 
 void extractData(WikiPage *page) {
     auto &text = page->text;
-
     std::string bodyText;
 
     for (int i = 0; i < text.size(); i++) {
-        if (fast_equals(text, INFOBOX, i)) {
+        if (processor->fast_equals(text, INFOBOX, i)) {
             i = extractInfobox(page, text, i);
-        } else if (fast_equals(text, CATEGORY, i)) {
+        } else if (processor->fast_equals(text, CATEGORY, i)) {
             i = extractCategory(page, text, i);
         } else {
             bodyText += text[i];
         }
     }
 
-    page->bodyText = processText(bodyText);
+    page->bodyText = processor->processText(bodyText);
 }
 
 class WikiSiteInfo {
@@ -245,6 +245,8 @@ const std::string filePath = "parser/large.xml";
 int main() {
     try {
         start_time
+
+        processor = new Preprocessor();
         std::ifstream ifs(filePath);
         // our xml is in the namespace denoted by the xmlns attribute in the XML file
         // we don't want attributes or namespace declarations
@@ -262,6 +264,7 @@ int main() {
         checkpoint();
 
         delete wo;
+        delete processor;
     } catch (xml::parsing &e) {
         std::cout << e.what() << std::endl;
         return 1;
