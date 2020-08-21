@@ -29,11 +29,18 @@ void writeIndex(const datatype &allData) {
             const auto &freq = doc_data.second;
             data += std::to_string(docid) + INTRA_SEP;
 
-            for (int i = 0, lim = freq.size() - 1; i < lim; i++) {
-                data += std::to_string(freq[i]) + INTRA_SEP;
-            }
+            int lim = freq.size() - 1;
+            while (lim >= 0 and freq[lim] == 0) lim--;
 
-            data += std::to_string(freq.back()) + INTER_SEP;
+            for (int i = 0; i <= lim; i++) {
+                data += std::to_string(freq[i]);
+
+                if (i == lim) {
+                    data += INTER_SEP;
+                } else {
+                    data += INTRA_SEP;
+                }
+            }
         }
 
         output << data << '\n';
@@ -42,7 +49,7 @@ void writeIndex(const datatype &allData) {
     output.close();
 }
 
-void writeTermMapping(const std::map<std::string, int>& terms) {
+void writeTermMapping(const std::map<std::string, int> &terms) {
     std::ofstream output(outputDir + "terms", filemode);
     for (const auto &term : terms) {
         output << term.first << ":" << term.second << '\n';
@@ -50,7 +57,7 @@ void writeTermMapping(const std::map<std::string, int>& terms) {
     output.close();
 }
 
-void writeDocMapping(const std::map<int, std::string>& docs) {
+void writeDocMapping(const std::map<int, std::string> &docs) {
     std::ofstream output(outputDir + "docs", filemode);
     for (const auto &doc : docs) {
         output << doc.first << ":" << doc.second << '\n';

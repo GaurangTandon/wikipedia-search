@@ -14,10 +14,11 @@
 #define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << std::endl;
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-const std::string filePath = "parser/medium.xml";
+const std::string filePath = "parser/large.xml";
 
+// have text zone first, since most tokens occur in text only
 enum {
-    INFOBOX_ZONE, CATEGORY_ZONE, TEXT_ZONE, ZONE_COUNT
+    TEXT_ZONE, INFOBOX_ZONE, CATEGORY_ZONE, ZONE_COUNT
 };
 
 struct timespec *st = new timespec(), *et = new timespec();
