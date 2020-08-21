@@ -4,3 +4,4 @@ a.out
 *.xml
 __pycache__
 libstemmer_c
+output

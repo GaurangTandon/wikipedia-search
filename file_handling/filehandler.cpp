@@ -9,8 +9,10 @@ int fileCount = 0;
 typedef std::map<int, std::map<int, std::vector<int>>> datatype;
 const auto filemode = std::ios_base::trunc | std::ios_base::out;
 
+const std::string outputDir = "output/";
+
 void writeIndex(const datatype &allData) {
-    const std::string filename = "index" + std::to_string(fileCount);
+    const std::string filename = outputDir + "index" + std::to_string(fileCount);
     fileCount++;
     std::ofstream output(filename, filemode);
     const std::string INTRA_SEP = ",";
@@ -41,7 +43,7 @@ void writeIndex(const datatype &allData) {
 }
 
 void writeTermMapping(const std::map<std::string, int>& terms) {
-    std::ofstream output("terms", filemode);
+    std::ofstream output(outputDir + "terms", filemode);
     for (const auto &term : terms) {
         output << term.first << ":" << term.second << '\n';
     }
@@ -49,7 +51,7 @@ void writeTermMapping(const std::map<std::string, int>& terms) {
 }
 
 void writeDocMapping(const std::map<int, std::string>& docs) {
-    std::ofstream output("docs", filemode);
+    std::ofstream output(outputDir + "docs", filemode);
     for (const auto &doc : docs) {
         output << doc.first << ":" << doc.second << '\n';
     }

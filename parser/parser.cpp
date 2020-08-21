@@ -1,11 +1,9 @@
 #include <xml/parser>
 #include<string>
 #include<iostream>
-#include<fstream>
 #include<map>
 #include <time.h>
 #include<vector>
-#include<utility>
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/filehandler.cpp"
 
@@ -20,7 +18,7 @@ const std::string filePath = "parser/medium.xml";
 
 enum {
     INFOBOX_ZONE, CATEGORY_ZONE, TEXT_ZONE, ZONE_COUNT
-} zones;
+};
 
 struct timespec *st = new timespec(), *et = new timespec();
 constexpr int MAX_CHECK = 5;
