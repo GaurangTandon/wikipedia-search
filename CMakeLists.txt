@@ -8,4 +8,5 @@ include_directories(libstemmer_c)
 
 add_executable(wikipedia_search
         parser/parser.cpp
+        file_handling/filehandler.cpp
         preprocess/preprocess.cpp)

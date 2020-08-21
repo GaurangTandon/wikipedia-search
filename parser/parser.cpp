@@ -2,9 +2,12 @@
 #include<string>
 #include<iostream>
 #include<fstream>
+#include<map>
 #include <time.h>
 #include<vector>
+#include<utility>
 #include "../preprocess/preprocess.cpp"
+#include "../file_handling/filehandler.cpp"
 
 /*
  * next_expect(): if `content` argument is set, then event type must be start element
@@ -13,11 +16,20 @@
 #define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << std::endl;
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-const std::string filePath = "parser/large.xml";
+const std::string filePath = "parser/medium.xml";
+
+enum {
+    INFOBOX_ZONE, CATEGORY_ZONE, TEXT_ZONE, ZONE_COUNT
+} zones;
 
 struct timespec *st = new timespec(), *et = new timespec();
 constexpr int MAX_CHECK = 5;
-int curr_check = 0;
+int currCheck = 0;
+
+std::map<std::string, int> termIDmapping;
+int termsCount = 1;
+std::map<int, std::string> docDetails;
+int docCount = 1;
 
 class WikiPage;
 
@@ -28,9 +40,12 @@ int curr = 0;
 class WikiPage {
 public:
     std::string title, text;
-    std::vector<std::string> infobox, bodyText, category;
+    // each part is governed by zonal markers
+    std::vector<std::vector<std::string>> terms;
 
     WikiPage(xml::parser &p) {
+        terms.resize(ZONE_COUNT);
+
         p.next_expect(xml::parser::start_element, NS, "page");
 
         bool inTitle = false, inText = false;
@@ -77,7 +92,7 @@ public:
 
 const std::string INFOBOX = "{{Infobox";
 const std::string CATEGORY = "[[category";
-Preprocessor* processor;
+Preprocessor *processor;
 
 int extractInfobox(WikiPage *page, const std::string &text, int start) {
     int cnt = 0;
@@ -103,7 +118,7 @@ int extractInfobox(WikiPage *page, const std::string &text, int start) {
     // start..end is inclusive
     auto infobox = text.substr(start, end + 1);
 
-    page->infobox = processor->processText(infobox);
+    page->terms[INFOBOX_ZONE] = processor->processText(infobox);
 
     return end;
 }
@@ -124,7 +139,7 @@ int extractCategory(WikiPage *page, const std::string &text, int start) {
     auto category = text.substr(start + CATEGORY.size(), end + 1);
 
     auto tokens = processor->processText(category);
-    page->category.insert(page->category.end(), tokens.begin(), tokens.end());
+    page->terms[CATEGORY_ZONE].insert(page->terms[CATEGORY_ZONE].end(), tokens.begin(), tokens.end());
 
     return end;
 }
@@ -143,7 +158,7 @@ void extractData(WikiPage *page) {
         }
     }
 
-    page->bodyText = processor->processText(bodyText);
+    page->terms[TEXT_ZONE] = processor->processText(bodyText);
 }
 
 class WikiSiteInfo {
@@ -171,9 +186,43 @@ long double timer;
     clock_gettime(CLOCK_MONOTONIC, et); \
     timer = (et->tv_sec - st->tv_sec) + 1e-9l * (et->tv_nsec - st->tv_nsec);
 
+int get_termid(const std::string &term) {
+    if (termIDmapping[term]) return termIDmapping[term];
+    else return termIDmapping[term] = termsCount++;
+}
+
+std::map<int, std::map<int, std::vector<int>>> allData;
+
+// writes all the pages seen so far into a file
+void writeToFile() {
+    allData.clear();
+
+    for (int i = 0; i < curr; i++) {
+        auto page = mem[i];
+        int docID = docCount++;
+
+        docDetails[docID] = page->title;
+
+        int zone_i = -1;
+        for (const auto &zone : page->terms) {
+            zone_i++;
+            for (const auto &term : zone) {
+                int termID = get_termid(term);
+
+                auto &freq = allData[termID][docID];
+                if (freq.empty()) freq = std::vector<int>(ZONE_COUNT);
+
+                freq[zone_i]++;
+            }
+        }
+    }
+
+    writeIndex(allData);
+}
+
 bool checkpoint() {
     end_time
-    curr_check++;
+    currCheck++;
 
     std::cout << "Exhausted reading " << curr << " records in time " << timer << std::endl;
 
@@ -189,14 +238,9 @@ bool checkpoint() {
         extractData(page);
 
         if ((i + 1) % LOG_POINT == 0) {
-            // use this to print
-            // std::cout << page->title << std::endl;
-            // for (auto word : page->bodyText) {
-            //     std::cout << word << std::endl;
-            // }
-
             end_time
-            std::cout << "Read " << LOG_POINT << " records with total length " << sum << " in time " << timer << std::endl;
+            std::cout << "Read " << LOG_POINT << " records with total length " << sum << " in time " << timer
+                      << std::endl;
             sum = 0;
             start_time
         }
@@ -204,13 +248,18 @@ bool checkpoint() {
 
     end_time
 
+    start_time
+    writeToFile();
+    end_time
+    std::cout << "Written in time " << timer << std::endl;
+
     for (int i = 0; i < curr; i++) {
         delete mem[i];
     }
 
     curr = 0;
 
-    if (curr_check == MAX_CHECK) {
+    if (currCheck == MAX_CHECK) {
         return false;
     }
 
@@ -270,8 +319,15 @@ int main() {
 
         checkpoint();
 
+        ifs.close();
         delete wo;
         delete processor;
+
+        start_time
+        writeTermMapping(termIDmapping);
+        writeDocMapping(docDetails);
+        end_time
+        std::cout << "Written terms and docs in time " << timer << std::endl;
     } catch (xml::parsing &e) {
         std::cout << e.what() << std::endl;
         return 1;
