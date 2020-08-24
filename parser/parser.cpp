@@ -5,10 +5,9 @@
 #include <time.h>
 #include<vector>
 #include "../preprocess/preprocess.cpp"
-#include "../file_handling/filehandler.cpp"
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <pthread.h>
+
+#include "../file_handling/termDocIdHandler.cpp"
 
 /*
  * next_expect(): if `content` argument is set, then event type must be start element
@@ -25,21 +24,29 @@ enum {
 };
 
 struct timespec *st = new timespec(), *et = new timespec();
-constexpr int MAX_CHECK = 5;
 int currCheck = 0;
 
-std::map<std::string, int> termIDmapping;
-int termsCount = 1;
-std::map<int, std::string> docDetails;
-int docCount = 1;
-
-std::vector<int> pendingJobs;
+constexpr int MX_THREADS = 100;
+pthread_t threads[MX_THREADS];
+int threadCount = 0;
 
 class WikiPage;
 
 constexpr int MX_MEM = 1000;
-WikiPage *mem[MX_MEM];
-int curr = 0;
+
+typedef struct memory_type {
+    WikiPage** store = nullptr;
+    int size = 0;
+} memory_type;
+
+memory_type* memory;
+
+void allocate_mem() {
+    memory = (memory_type*) malloc(sizeof(memory_type));
+    // TODO: use doubling strategy instead of initializing full size in one attempt
+    memory->store = (WikiPage**) malloc(sizeof(WikiPage*) * MX_MEM);
+    memory->size = 0;
+}
 
 class WikiPage {
 public:
@@ -190,10 +197,6 @@ long double timer;
     clock_gettime(CLOCK_MONOTONIC, et); \
     timer = (et->tv_sec - st->tv_sec) + 1e-9l * (et->tv_nsec - st->tv_nsec);
 
-int get_termid(const std::string &term) {
-    if (termIDmapping[term]) return termIDmapping[term];
-    else return termIDmapping[term] = termsCount++;
-}
 
 std::map<int, std::map<int, std::vector<int>>> allData;
 
@@ -202,9 +205,12 @@ void writeToFile() {
     start_time
     allData.clear();
 
-    for (int i = 0; i < curr; i++) {
-        auto page = mem[i];
-        int docID = docCount++;
+    for (int i = 0; i < memory->size; i++) {
+        auto page = memory->store[i];
+
+        pthread_mutex_lock(&doc_id_mutex);
+        int docID = get_docid();
+        pthread_mutex_unlock(&doc_id_mutex);
 
         docDetails[docID] = page->title;
 
@@ -212,7 +218,9 @@ void writeToFile() {
         for (const auto &zone : page->terms) {
             zone_i++;
             for (const auto &term : zone) {
+                pthread_mutex_lock(&term_id_mutex);
                 int termID = get_termid(term);
+                pthread_mutex_unlock(&term_id_mutex);
 
                 auto &freq = allData[termID][docID];
                 if (freq.empty()) freq = std::vector<int>(ZONE_COUNT);
@@ -228,49 +236,51 @@ void writeToFile() {
     std::cout << "Written in time " << timer << '\n';
 }
 
+void *thread_checkpoint(void *arg) {
+    auto memP = (memory_type**)arg;
+    auto mem = *memP;
+    int LOG_POINT = 1000;
+
+    start_time
+
+    int sum = 0;
+
+    for (int i = 0; i < mem->size; i++) {
+        auto &page = mem->store[i];
+        sum += page->text.size();
+        extractData(page);
+
+        if ((i + 1) % LOG_POINT == 0) {
+            end_time
+            std::cout << "Stemmed " << LOG_POINT << " records with total length " << sum << " in time " << timer
+                      << '\n';
+            sum = 0;
+            start_time
+        }
+    }
+
+    end_time
+
+    writeToFile();
+
+    for (int i = 0; i < mem->size; i++) {
+        delete mem->store[i];
+    }
+
+    // TODO: I probably need to call free here
+
+    return nullptr;
+}
+
 bool checkpoint() {
     end_time
     currCheck++;
 
-    std::cout << "Exhausted parsing " << curr << " records in time " << timer << '\n';
+    std::cout << "Exhausted parsing " << memory->size << " records in time " << timer << '\n';
 
-    int pid = fork();
+    pthread_create(&threads[threadCount++], nullptr, thread_checkpoint, &memory);
 
-    if (pid == 0) {
-        int LOG_POINT = 1000;
-
-        start_time
-
-        int sum = 0;
-
-        for (int i = 0; i < curr; i++) {
-            auto &page = mem[i];
-            sum += page->text.size();
-            extractData(page);
-
-            if ((i + 1) % LOG_POINT == 0) {
-                end_time
-                std::cout << "Stemmed " << LOG_POINT << " records with total length " << sum << " in time " << timer
-                          << '\n';
-                sum = 0;
-                start_time
-            }
-        }
-
-        end_time
-
-        writeToFile();
-
-        for (int i = 0; i < curr; i++) {
-            delete mem[i];
-        }
-
-        exit(0);
-    }
-
-    pendingJobs.push_back(pid);
-    curr = 0;
-
+    allocate_mem();
     start_time;
 
     return true;
@@ -289,9 +299,9 @@ public:
 
         while (p.peek() == xml::parser::start_element) {
             auto page = new WikiPage(p);
-            mem[curr++] = page;
+            memory->store[memory->size++] = page;
 
-            if (curr == MX_MEM) {
+            if (memory->size == MX_MEM) {
                 if (not checkpoint()) {
                     interrupted = true;
                     break;
@@ -324,11 +334,12 @@ int main(int argc, char *argv[]) {
 
         end_time
 
-        std::cout << "File read and parser readied in time " << timer << '\n';
+        std::cout << "Parser readied in time " << timer << '\n';
 
         // if you put the receive_namespace_decls flag in the parser argument, it will start receiving
         // namespace decls also, which may be desirable, but for now, skip it and hardcode the namespace
 
+        allocate_mem();
         auto wo = new WikiObject(p);
 
         checkpoint();
@@ -337,16 +348,15 @@ int main(int argc, char *argv[]) {
         delete wo;
         delete processor;
 
-        for (auto pending : pendingJobs) {
-            int status;
-            waitpid(pending, &status, 0);
-            assert(WIFEXITED(status));
+        for (int thread = 0; thread < threadCount; thread++) {
+            pthread_join(threads[thread], nullptr);
         }
 
         start_time
         writeTermMapping(termIDmapping);
         writeDocMapping(docDetails);
         end_time
+
         std::cout << "Written terms and docs in time " << timer << '\n';
     } catch (xml::parsing &e) {
         std::cout << e.what() << '\n';

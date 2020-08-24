@@ -52,4 +52,3 @@ void writeIndex(const datatype &allData) {
 
     output.close();
 }
-

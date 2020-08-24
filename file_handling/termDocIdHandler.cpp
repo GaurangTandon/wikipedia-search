@@ -1,9 +1,24 @@
 #include<iostream>
 #include<map>
-#include<fstream>
 #include<string>
+#include "filehandler.cpp"
 
-std::string outputDir;
+std::map<std::string, int> termIDmapping;
+int termsCount = 1;
+std::map<int, std::string> docDetails;
+int docCount = 1;
+
+pthread_mutex_t term_id_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t doc_id_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int get_termid(const std::string &term) {
+    if (termIDmapping[term]) return termIDmapping[term];
+    else return termIDmapping[term] = termsCount++;
+}
+
+int get_docid() {
+    return docCount++;
+}
 
 void writeTermMapping(const std::map<std::string, int> &terms) {
     std::ofstream output(outputDir + "terms", filemode);
@@ -19,9 +34,4 @@ void writeDocMapping(const std::map<int, std::string> &docs) {
         output << doc.first << ":" << doc.second << '\n';
     }
     output.close();
-}
-
-int main(int argc, char *argv[]) {
-    if (argc != 1) return 1;
-    outputDir = std::string(argv[0]);
 }
