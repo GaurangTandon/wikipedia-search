@@ -1,7 +1,7 @@
 #include<string>
 #include<vector>
-#include<locale>
-#include <assert.h>
+#include<set>
+#include <cassert>
 #include <iostream>
 #include <fstream>
 #include "../libstemmer_c/include/libstemmer.h"
@@ -9,12 +9,14 @@
 class Preprocessor {
 public:
     sb_stemmer *stemmer = nullptr;
-    std::vector<std::string> stopwords;
+    std::set<std::string> stopwords;
+    std::locale loc;
 
     Preprocessor() {
         // const char** list = sb_stemmer_list();
         // there is porter2 in this
 
+        loc = std::locale();
         stemmer = sb_stemmer_new("porter", nullptr);
         assert(stemmer != nullptr);
         std::ifstream stopwords_file("stopwords.txt");
@@ -23,8 +25,9 @@ public:
         while (count--) {
             std::string word;
             stopwords_file >> word;
-            stopwords.push_back(word);
+            stopwords.insert(word);
         }
+        stopwords_file.close();
     }
 
     ~Preprocessor() {
@@ -33,7 +36,7 @@ public:
 
 // O3 will optimize the for loops out
 // https://godbolt.org/z/bT9398
-    bool validChar(char c) {
+    inline bool validChar(char c) {
         char ranges[][2] = {
                 {'a', 'z'},
                 {'A', 'Z'},
@@ -52,19 +55,12 @@ public:
         return false;
     }
 
-    bool isStopword(const char *word, int len) {
-        for (const auto &stopword : stopwords) {
-            if (stopword.size() != len) continue;
-            for (int i = 0; i < len; i++) {
-                if (stopword[i] != word[i]) goto end;
-            }
-            return true;
-            end:;
-        }
-        return false;
+    inline bool isStopword(const char *word, int len) {
+        std::string w(word);
+        return stopwords.find(w) != stopwords.end();
     }
 
-    std::string stemming(const char *word, const int len) {
+    inline std::string stemming(const char *word, const int len) {
         const sb_symbol *res = sb_stemmer_stem(stemmer, reinterpret_cast<const sb_symbol *>(word), len);
         return std::string(reinterpret_cast<const char *>(res));
     }
@@ -86,10 +82,11 @@ public:
             }
 
             int word_len = right - left + 1;
-            char *word = (char *) malloc(word_len * sizeof(char));
+            char *word = (char *) malloc((word_len + 1) * sizeof(char));
             for (int i = 0; i < word_len; i++) {
-                word[i] = tolower(text[i + left], std::locale());
+                word[i] = tolower(text[i + left], loc);
             }
+            word[word_len] = 0;
 
             if (not isStopword(word, len)) {
                 stemmedTokens.push_back(stemming(word, word_len));

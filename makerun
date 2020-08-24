@@ -1,4 +1,6 @@
  ./clean $1
  mkdir $1
 
- g++ parser/parser.cpp /usr/local/lib/libstudxml.a libstemmer_c/libstemmer.o -g -O3 && ./a.out
+ g++ parser/parser.cpp /usr/local/lib/libstudxml.a libstemmer_c/libstemmer.o -g $2 -O3 -o parser_exe
+
+ ./parser_exe $1

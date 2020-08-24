@@ -6,12 +6,15 @@
 #include<vector>
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/filehandler.cpp"
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 /*
  * next_expect(): if `content` argument is set, then event type must be start element
  */
 
-#define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << std::endl;
+#define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << '\n';
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
 const std::string filePath = "parser/large.xml";
@@ -30,9 +33,11 @@ int termsCount = 1;
 std::map<int, std::string> docDetails;
 int docCount = 1;
 
+std::vector<int> pendingJobs;
+
 class WikiPage;
 
-constexpr int MX_MEM = 5000;
+constexpr int MX_MEM = 1000;
 WikiPage *mem[MX_MEM];
 int curr = 0;
 
@@ -194,6 +199,7 @@ std::map<int, std::map<int, std::vector<int>>> allData;
 
 // writes all the pages seen so far into a file
 void writeToFile() {
+    start_time
     allData.clear();
 
     for (int i = 0; i < curr; i++) {
@@ -217,50 +223,53 @@ void writeToFile() {
     }
 
     writeIndex(allData);
+
+    end_time
+    std::cout << "Written in time " << timer << '\n';
 }
 
 bool checkpoint() {
     end_time
     currCheck++;
 
-    std::cout << "Exhausted reading " << curr << " records in time " << timer << std::endl;
+    std::cout << "Exhausted parsing " << curr << " records in time " << timer << '\n';
 
-    int LOG_POINT = 1000;
+    int pid = fork();
 
-    start_time
+    if (pid == 0) {
+        int LOG_POINT = 1000;
 
-    int sum = 0;
+        start_time
 
-    for (int i = 0; i < curr; i++) {
-        auto &page = mem[i];
-        sum += page->text.size();
-        extractData(page);
+        int sum = 0;
 
-        if ((i + 1) % LOG_POINT == 0) {
-            end_time
-            std::cout << "Read " << LOG_POINT << " records with total length " << sum << " in time " << timer
-                      << std::endl;
-            sum = 0;
-            start_time
+        for (int i = 0; i < curr; i++) {
+            auto &page = mem[i];
+            sum += page->text.size();
+            extractData(page);
+
+            if ((i + 1) % LOG_POINT == 0) {
+                end_time
+                std::cout << "Stemmed " << LOG_POINT << " records with total length " << sum << " in time " << timer
+                          << '\n';
+                sum = 0;
+                start_time
+            }
         }
+
+        end_time
+
+        writeToFile();
+
+        for (int i = 0; i < curr; i++) {
+            delete mem[i];
+        }
+
+        exit(0);
     }
 
-    end_time
-
-    start_time
-    writeToFile();
-    end_time
-    std::cout << "Written in time " << timer << std::endl;
-
-    for (int i = 0; i < curr; i++) {
-        delete mem[i];
-    }
-
+    pendingJobs.push_back(pid);
     curr = 0;
-
-    if (currCheck == MAX_CHECK) {
-        return false;
-    }
 
     start_time;
 
@@ -297,7 +306,13 @@ public:
 };
 
 
-int main() {
+int main(int argc, char *argv[]) {
+    if (argc == 2) {
+        char *dir = argv[1];
+
+        setOutputDir(std::string(dir));
+    }
+
     try {
         start_time
 
@@ -309,7 +324,7 @@ int main() {
 
         end_time
 
-        std::cout << "File read and parser readied in time " << timer << std::endl;
+        std::cout << "File read and parser readied in time " << timer << '\n';
 
         // if you put the receive_namespace_decls flag in the parser argument, it will start receiving
         // namespace decls also, which may be desirable, but for now, skip it and hardcode the namespace
@@ -322,13 +337,19 @@ int main() {
         delete wo;
         delete processor;
 
+        for (auto pending : pendingJobs) {
+            int status;
+            waitpid(pending, &status, 0);
+            assert(WIFEXITED(status));
+        }
+
         start_time
         writeTermMapping(termIDmapping);
         writeDocMapping(docDetails);
         end_time
-        std::cout << "Written terms and docs in time " << timer << std::endl;
+        std::cout << "Written terms and docs in time " << timer << '\n';
     } catch (xml::parsing &e) {
-        std::cout << e.what() << std::endl;
+        std::cout << e.what() << '\n';
         return 1;
     }
 

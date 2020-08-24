@@ -5,3 +5,4 @@ a.out
 __pycache__
 libstemmer_c
 output
+parser_exe
