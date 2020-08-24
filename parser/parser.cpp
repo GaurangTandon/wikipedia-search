@@ -43,7 +43,6 @@ memory_type* memory;
 
 void allocate_mem() {
     memory = (memory_type*) malloc(sizeof(memory_type));
-    // TODO: use doubling strategy instead of initializing full size in one attempt
     memory->store = (WikiPage**) malloc(sizeof(WikiPage*) * MX_MEM);
     memory->size = 0;
 }
@@ -198,15 +197,16 @@ long double timer;
     timer = (et->tv_sec - st->tv_sec) + 1e-9l * (et->tv_nsec - st->tv_nsec);
 
 
-std::map<int, std::map<int, std::vector<int>>> allData;
-
 // writes all the pages seen so far into a file
-void writeToFile() {
+void writeToFile(memory_type* mem) {
+    long double timer; struct timespec *st = new timespec(), *et = new timespec();
+
+    std::map<int, std::map<int, std::vector<int>>> allData;
     start_time
     allData.clear();
 
-    for (int i = 0; i < memory->size; i++) {
-        auto page = memory->store[i];
+    for (int i = 0; i < mem->size; i++) {
+        auto page = mem->store[i];
 
         pthread_mutex_lock(&doc_id_mutex);
         int docID = get_docid();
@@ -237,9 +237,8 @@ void writeToFile() {
 }
 
 void *thread_checkpoint(void *arg) {
-    auto memP = (memory_type**)arg;
-    auto mem = *memP;
-    int LOG_POINT = 1000;
+    auto mem = (memory_type*)arg;
+    long double timer; struct timespec *st = new timespec(), *et = new timespec();
 
     start_time
 
@@ -249,41 +248,33 @@ void *thread_checkpoint(void *arg) {
         auto &page = mem->store[i];
         sum += page->text.size();
         extractData(page);
-
-        if ((i + 1) % LOG_POINT == 0) {
-            end_time
-            std::cout << "Stemmed " << LOG_POINT << " records with total length " << sum << " in time " << timer
-                      << '\n';
-            sum = 0;
-            start_time
-        }
     }
 
     end_time
 
-    writeToFile();
+    std::cout << "Stemmed " << mem->size << " records with total length " << sum << " in time " << timer << '\n';
+
+    writeToFile(mem);
 
     for (int i = 0; i < mem->size; i++) {
         delete mem->store[i];
     }
 
-    // TODO: I probably need to call free here
+    free(mem);
 
     return nullptr;
 }
 
-bool checkpoint() {
+void checkpoint() {
     end_time
     currCheck++;
 
     std::cout << "Exhausted parsing " << memory->size << " records in time " << timer << '\n';
 
-    pthread_create(&threads[threadCount++], nullptr, thread_checkpoint, &memory);
+    pthread_create(&threads[threadCount++], nullptr, thread_checkpoint, memory);
 
     allocate_mem();
     start_time;
-
-    return true;
 }
 
 
@@ -293,7 +284,6 @@ public:
         p.next_expect(xml::parser::start_element, NS, "mediawiki", xml::content::complex);
 
         auto wsi = new WikiSiteInfo(p);
-        bool interrupted = false;
 
         start_time
 
@@ -302,14 +292,11 @@ public:
             memory->store[memory->size++] = page;
 
             if (memory->size == MX_MEM) {
-                if (not checkpoint()) {
-                    interrupted = true;
-                    break;
-                }
+                checkpoint();
             }
         }
 
-        if (not interrupted) p.next_expect(xml::parser::end_element, NS, "mediawiki");
+        p.next_expect(xml::parser::end_element, NS, "mediawiki");
 
         delete wsi;
     }
@@ -344,10 +331,6 @@ int main(int argc, char *argv[]) {
 
         checkpoint();
 
-        ifs.close();
-        delete wo;
-        delete processor;
-
         for (int thread = 0; thread < threadCount; thread++) {
             pthread_join(threads[thread], nullptr);
         }
@@ -356,6 +339,11 @@ int main(int argc, char *argv[]) {
         writeTermMapping(termIDmapping);
         writeDocMapping(docDetails);
         end_time
+
+        ifs.close();
+        delete wo;
+        delete processor;
+        free(memory);
 
         std::cout << "Written terms and docs in time " << timer << '\n';
     } catch (xml::parsing &e) {

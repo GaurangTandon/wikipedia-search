@@ -4,13 +4,17 @@
 #include <cassert>
 #include <iostream>
 #include <fstream>
+#include <pthread.h>
 #include "../libstemmer_c/include/libstemmer.h"
+
+constexpr int MAX_WORD_LEN = 20;
 
 class Preprocessor {
 public:
     sb_stemmer *stemmer = nullptr;
     std::set<std::string> stopwords;
     std::locale loc;
+    pthread_mutex_t stemmer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
     Preprocessor() {
         // const char** list = sb_stemmer_list();
@@ -61,8 +65,15 @@ public:
     }
 
     inline std::string stemming(const char *word, const int len) {
+        pthread_mutex_lock(&stemmer_mutex);
+
         const sb_symbol *res = sb_stemmer_stem(stemmer, reinterpret_cast<const sb_symbol *>(word), len);
-        return std::string(reinterpret_cast<const char *>(res));
+        auto ans = reinterpret_cast<const char *>(res);
+        auto ret = std::string(ans);
+
+        pthread_mutex_unlock(&stemmer_mutex);
+
+        return ret;
     }
 
     std::vector<std::string> processText(std::string text) {
@@ -82,17 +93,21 @@ public:
             }
 
             int word_len = right - left + 1;
-            char *word = (char *) malloc((word_len + 1) * sizeof(char));
-            for (int i = 0; i < word_len; i++) {
-                word[i] = tolower(text[i + left], loc);
-            }
-            word[word_len] = 0;
 
-            if (not isStopword(word, len)) {
-                stemmedTokens.push_back(stemming(word, word_len));
-            }
+            if (word_len <= MAX_WORD_LEN) {
+                char *word = (char *) malloc((word_len + 1) * sizeof(char));
+                for (int i = 0; i < word_len; i++) {
+                    word[i] = tolower(text[i + left], loc);
+                }
+                word[word_len] = 0;
 
-            free(word);
+                if (not isStopword(word, len)) {
+//                std::cout << word << std::endl;
+                    stemmedTokens.push_back(stemming(word, word_len));
+                }
+
+                free(word);
+            }
 
             left = right + 1;
         }
