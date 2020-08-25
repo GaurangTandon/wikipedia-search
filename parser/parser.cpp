@@ -16,7 +16,7 @@
 #define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << '\n';
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-const std::string filePath = "parser/large.xml";
+const std::string filePath = "parser/official.xml";
 
 // have text zone first, since most tokens occur in text only
 enum {
@@ -35,15 +35,15 @@ class WikiPage;
 constexpr int MX_MEM = 1000;
 
 typedef struct memory_type {
-    WikiPage** store = nullptr;
+    WikiPage **store = nullptr;
     int size = 0;
 } memory_type;
 
-memory_type* memory;
+memory_type *memory;
 
 void allocate_mem() {
-    memory = (memory_type*) malloc(sizeof(memory_type));
-    memory->store = (WikiPage**) malloc(sizeof(WikiPage*) * MX_MEM);
+    memory = (memory_type *) malloc(sizeof(memory_type));
+    memory->store = (WikiPage **) malloc(sizeof(WikiPage *) * MX_MEM);
     memory->size = 0;
 }
 
@@ -108,8 +108,6 @@ int extractInfobox(WikiPage *page, const std::string &text, int start) {
     int cnt = 0;
     int end = start;
 
-    assert(not text.empty());
-
     while (end < text.size() - 1) {
         if (text[end] == '{' and text[end + 1] == '{') cnt++;
         else if (text[end] == '}' and text[end + 1] == '}') {
@@ -123,7 +121,11 @@ int extractInfobox(WikiPage *page, const std::string &text, int start) {
         end++;
     }
 
-    assert (cnt == 0);
+    if (cnt != 0) {
+        std::cout << page->title << std::endl;
+        std::cout << cnt << std::endl;
+        exit(1);
+    }
 
     // start..end is inclusive
     auto infobox = text.substr(start, end + 1);
@@ -198,8 +200,9 @@ long double timer;
 
 
 // writes all the pages seen so far into a file
-void writeToFile(memory_type* mem) {
-    long double timer; struct timespec *st = new timespec(), *et = new timespec();
+void writeToFile(memory_type *mem) {
+    long double timer;
+    struct timespec *st = new timespec(), *et = new timespec();
 
     std::map<int, std::map<int, std::vector<int>>> allData;
     start_time
@@ -237,8 +240,9 @@ void writeToFile(memory_type* mem) {
 }
 
 void *thread_checkpoint(void *arg) {
-    auto mem = (memory_type*)arg;
-    long double timer; struct timespec *st = new timespec(), *et = new timespec();
+    auto mem = (memory_type *) arg;
+    long double timer;
+    struct timespec *st = new timespec(), *et = new timespec();
 
     start_time
 
@@ -301,7 +305,6 @@ public:
         delete wsi;
     }
 };
-
 
 int main(int argc, char *argv[]) {
     if (argc == 2) {

@@ -7,7 +7,10 @@
 #include <pthread.h>
 #include "../libstemmer_c/include/libstemmer.h"
 
-constexpr int MAX_WORD_LEN = 20;
+// wouldn't recommend going below 25 because few popular words
+// like internationalization are very long
+// Full stats: http://norvig.com/mayzner.html
+constexpr int MAX_WORD_LEN = 25;
 
 class Preprocessor {
 public:
@@ -23,7 +26,7 @@ public:
         loc = std::locale();
         stemmer = sb_stemmer_new("porter", nullptr);
         assert(stemmer != nullptr);
-        std::ifstream stopwords_file("stopwords.txt");
+        std::ifstream stopwords_file("preprocess/stopwords.txt");
         int count;
         stopwords_file >> count;
         while (count--) {

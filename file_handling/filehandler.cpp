@@ -25,29 +25,28 @@ void writeIndex(const datatype &allData) {
     for (const auto &term_data : allData) {
         const auto &termid = term_data.first;
         const auto &postings = term_data.second;
-        std::string data;
-        data += std::to_string(termid) + ":";
+        output << termid << ":";
 
         for (const auto &doc_data : postings) {
             const auto &docid = doc_data.first;
             const auto &freq = doc_data.second;
-            data += std::to_string(docid) + INTRA_SEP;
+            output << docid << INTRA_SEP;
 
             int lim = freq.size() - 1;
             while (lim >= 0 and freq[lim] == 0) lim--;
 
             for (int i = 0; i <= lim; i++) {
-                data += std::to_string(freq[i]);
+                output << freq[i];
 
                 if (i == lim) {
-                    data += INTER_SEP;
+                    output << INTER_SEP;
                 } else {
-                    data += INTRA_SEP;
+                    output << INTRA_SEP;
                 }
             }
         }
 
-        output << data << '\n';
+        output << '\n';
     }
 
     output.close();
