@@ -270,15 +270,11 @@ void *thread_checkpoint(void *arg) {
 }
 
 void checkpoint() {
-    end_time
     currCheck++;
-
-    std::cout << "Exhausted parsing " << memory->size << " records in time " << timer << '\n';
 
     pthread_create(&threads[threadCount++], nullptr, thread_checkpoint, memory);
 
     allocate_mem();
-    start_time;
 }
 
 
@@ -314,25 +310,24 @@ int main(int argc, char *argv[]) {
     }
 
     try {
-        start_time
-
         processor = new Preprocessor();
         std::ifstream ifs(filePath);
         // our xml is in the namespace denoted by the xmlns attribute in the XML file
         // we don't want attributes or namespace declarations
-        xml::parser p(ifs, filePath, xml::parser::receive_characters | xml::parser::receive_elements);
-
-        end_time
-
-        std::cout << "Parser readied in time " << timer << '\n';
 
         // if you put the receive_namespace_decls flag in the parser argument, it will start receiving
         // namespace decls also, which may be desirable, but for now, skip it and hardcode the namespace
+        xml::parser p(ifs, filePath, xml::parser::receive_characters | xml::parser::receive_elements);
 
         allocate_mem();
+
+        std::cout << "Starting parsing" << std::endl;
+
         auto wo = new WikiObject(p);
 
         checkpoint();
+
+        std::cout << "Finished parsing the xml" << std::endl;
 
         for (int thread = 0; thread < threadCount; thread++) {
             pthread_join(threads[thread], nullptr);

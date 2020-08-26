@@ -19,6 +19,7 @@ public:
     std::locale loc;
     pthread_mutex_t stemmer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+
     Preprocessor() {
         // const char** list = sb_stemmer_list();
         // there is porter2 in this
@@ -26,9 +27,10 @@ public:
         loc = std::locale();
         stemmer = sb_stemmer_new("porter", nullptr);
         assert(stemmer != nullptr);
-        std::ifstream stopwords_file("preprocess/stopwords.txt");
+        std::ifstream stopwords_file("preprocess/stopwords.txt", std::ios_base::in);
         int count;
         stopwords_file >> count;
+        assert(count < 200);
         while (count--) {
             std::string word;
             stopwords_file >> word;
@@ -62,7 +64,7 @@ public:
         return false;
     }
 
-    inline bool isStopword(const char *word, int len) {
+    inline bool isStopword(const char *word) {
         std::string w(word);
         return stopwords.find(w) != stopwords.end();
     }
@@ -104,9 +106,10 @@ public:
                 }
                 word[word_len] = 0;
 
-                if (not isStopword(word, len)) {
-//                std::cout << word << std::endl;
+                if (not isStopword(word)) {
+//                    std::cout << word << std::endl;
                     stemmedTokens.push_back(stemming(word, word_len));
+//                    stemmedTokens.push_back(std::string(word));
                 }
 
                 free(word);

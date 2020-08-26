@@ -1,0 +1,4 @@
+g++ -O3 timer.cpp
+./a.out > out
+tail -5 out
+rm out

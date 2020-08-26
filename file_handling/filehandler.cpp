@@ -3,13 +3,14 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <sstream>
 
 int fileCount = 0;
 
 typedef std::map<int, std::map<int, std::vector<int>>> datatype;
-const auto filemode = std::ios_base::trunc | std::ios_base::out;
+const auto filemode = std::ios_base::out | std::ios_base::binary; // binary mode probably faster
 
-std::string outputDir = "output/";
+std::string outputDir = "/home/gt/iiit/ire/wikipedia-search/output/";
 
 void setOutputDir(const std::string &dir) {
     outputDir = dir + "/";
@@ -25,28 +26,30 @@ void writeIndex(const datatype &allData) {
     for (const auto &term_data : allData) {
         const auto &termid = term_data.first;
         const auto &postings = term_data.second;
-        output << termid << ":";
+        std::stringstream line;
+        line << termid << ":";
 
         for (const auto &doc_data : postings) {
             const auto &docid = doc_data.first;
             const auto &freq = doc_data.second;
-            output << docid << INTRA_SEP;
+            line << docid << INTRA_SEP;
 
             int lim = freq.size() - 1;
             while (lim >= 0 and freq[lim] == 0) lim--;
 
             for (int i = 0; i <= lim; i++) {
-                output << freq[i];
+                line << freq[i];
 
                 if (i == lim) {
-                    output << INTER_SEP;
+                    line << INTER_SEP;
                 } else {
-                    output << INTRA_SEP;
+                    line << INTRA_SEP;
                 }
             }
         }
 
-        output << '\n';
+        line << '\n';
+        output << line.rdbuf();
     }
 
     output.close();
