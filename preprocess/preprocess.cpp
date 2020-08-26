@@ -16,7 +16,6 @@ class Preprocessor {
 public:
     sb_stemmer *stemmer = nullptr;
     std::set<std::string> stopwords;
-    std::locale loc;
     pthread_mutex_t stemmer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -24,7 +23,6 @@ public:
         // const char** list = sb_stemmer_list();
         // there is porter2 in this
 
-        loc = std::locale();
         stemmer = sb_stemmer_new("porter", nullptr);
         assert(stemmer != nullptr);
         std::ifstream stopwords_file("preprocess/stopwords.txt", std::ios_base::in);
@@ -46,22 +44,18 @@ public:
 // O3 will optimize the for loops out
 // https://godbolt.org/z/bT9398
     inline bool validChar(char c) {
-        char ranges[][2] = {
-                {'a', 'z'},
-                {'A', 'Z'},
-                {'0', '9'}
-        };
-        char singles[] = {'_', '$'};
-
-        for (auto r : ranges) {
-            if (c >= r[0] and c <= r[1]) return true;
-        }
-
-        for (auto s : singles) {
-            if (c == s) return true;
-        }
+        if (c >= 'a' and c <= 'z') return true;
+        if (c >= 'A' and c <= 'Z') return true;
+        if (c >= '0' and c <= '9') return true;
+        if (c == '_') return true;
+        if (c == '$') return true;
 
         return false;
+    }
+
+    inline char lowercase(char c) {
+        if (c >= 'A' and c <= 'Z') return c + 32;
+        return c;
     }
 
     inline bool isStopword(const char *word) {
@@ -102,7 +96,7 @@ public:
             if (word_len <= MAX_WORD_LEN) {
                 char *word = (char *) malloc((word_len + 1) * sizeof(char));
                 for (int i = 0; i < word_len; i++) {
-                    word[i] = tolower(text[i + left], loc);
+                    word[i] = lowercase(text[i + left]);
                 }
                 word[word_len] = 0;
 

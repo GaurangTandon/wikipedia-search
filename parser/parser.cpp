@@ -194,10 +194,16 @@ long double timer;
 
 #define start_time clock_gettime(CLOCK_MONOTONIC, st);
 
+#define calc_time(st, et) ((et->tv_sec - st->tv_sec) + 1e-9l * (et->tv_nsec - st->tv_nsec))
+
 #define end_time \
     clock_gettime(CLOCK_MONOTONIC, et); \
-    timer = (et->tv_sec - st->tv_sec) + 1e-9l * (et->tv_nsec - st->tv_nsec);
+    timer = calc_time(st, et);
 
+
+// TODO: instead of doing this separately, do this directly while
+// creating the tokens, instead of storing everything in a double-map first
+// and then doing this
 
 // writes all the pages seen so far into a file
 void writeToFile(memory_type *mem) {
@@ -211,19 +217,14 @@ void writeToFile(memory_type *mem) {
     for (int i = 0; i < mem->size; i++) {
         auto page = mem->store[i];
 
-        pthread_mutex_lock(&doc_id_mutex);
         int docID = get_docid();
-        pthread_mutex_unlock(&doc_id_mutex);
-
         docDetails[docID] = page->title;
 
         int zone_i = -1;
         for (const auto &zone : page->terms) {
             zone_i++;
             for (const auto &term : zone) {
-                pthread_mutex_lock(&term_id_mutex);
                 int termID = get_termid(term);
-                pthread_mutex_unlock(&term_id_mutex);
 
                 auto &freq = allData[termID][docID];
                 if (freq.empty()) freq = std::vector<int>(ZONE_COUNT);
@@ -303,6 +304,13 @@ public:
 };
 
 int main(int argc, char *argv[]) {
+    auto *stt = new timespec(), *ett = new timespec();
+    clock_gettime(CLOCK_MONOTONIC, stt);
+
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(nullptr);
+    std::cout.tie(nullptr);
+
     if (argc == 2) {
         char *dir = argv[1];
 
@@ -348,6 +356,10 @@ int main(int argc, char *argv[]) {
         std::cout << e.what() << '\n';
         return 1;
     }
+
+    clock_gettime(CLOCK_MONOTONIC, ett);
+    long double global_time = calc_time(stt, ett);
+    std::cout << "Total time taken " << global_time << std::endl;
 
     return 0;
 }
