@@ -1,0 +1,4 @@
+- create the merged index file
+- support more sections
+- look into on-the-fly zipped file i/o
+- write search script

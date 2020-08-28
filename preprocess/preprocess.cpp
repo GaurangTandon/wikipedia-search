@@ -6,7 +6,7 @@
 #include <fstream>
 #include <pthread.h>
 #include "../libstemmer_c/include/libstemmer.h"
-#include "../common.h"
+#include "../parsing_common.h"
 
 // ignoring apostrophe for now, valid word is just a-z, $, _, 0-9
 

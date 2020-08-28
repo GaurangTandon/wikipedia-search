@@ -23,6 +23,7 @@ SET_SOURCE_FILES_PROPERTIES(
 add_executable(wikipedia_search
         ${OBJS}
         common.h
+        search/search.cpp
         parser/parser.cpp)
 #        file_handling/filehandler.cpp
 #        preprocess/preprocess.cpp file_handling/termDocIdHandler.cpp)

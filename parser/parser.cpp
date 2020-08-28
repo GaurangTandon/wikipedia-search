@@ -1,7 +1,6 @@
 #include <xml/parser>
 #include<string>
 #include<iostream>
-#include<map>
 #include <ctime>
 #include<vector>
 #include "../preprocess/preprocess.cpp"
@@ -16,7 +15,7 @@
 #define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << '\n';
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-const std::string filePath = "parser/large.xml";
+const std::string filePath = "parser/official.xml";
 
 struct timespec *st = new timespec(), *et = new timespec();
 int currCheck = 0;
