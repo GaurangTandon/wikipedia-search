@@ -6,6 +6,7 @@
 #include <fstream>
 #include <pthread.h>
 #include "../libstemmer_c/include/libstemmer.h"
+#include "../common.h"
 
 // ignoring apostrophe for now, valid word is just a-z, $, _, 0-9
 
@@ -131,7 +132,7 @@ public:
         return ret;
     }
 
-    std::vector<std::string> processText(std::string text) {
+    void processText(memory_type *mem, const WikiPage *page, const int zone, const std::string &text) {
         // tokenize
         // stopwords removal
         // stemmer
@@ -175,10 +176,19 @@ public:
         }
         pthread_mutex_unlock(&stemmer_mutex);
 
-        return stemmedTokens;
+        std::map<std::string, std::vector<int>> local;
+        for (auto &term : stemmedTokens) {
+            auto &freq = local[term];
+            if (freq.empty()) freq = std::vector<int>(ZONE_COUNT);
+            freq[zone]++;
+        }
+
+        for (auto &ldata : local) {
+            mem->alldata[ldata.first].push_back({page->docid, ldata.second});
+        }
     }
 
-// reduced time from 2.2s to 0.8s (compared to src.substr(pos, target.size()) == target)
+    // reduced time from 2.2s to 0.8s (compared to src.substr(pos, target.size()) == target)
     bool fast_equals(const std::string &src, const std::string &target, int pos = 0) {
         int j = 0, i = pos;
 

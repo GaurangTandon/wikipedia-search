@@ -1,15 +1,14 @@
-#include <map>
 #include <vector>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <sstream>
+#include "id_handler.cpp"
 
 int fileCount = 0;
 
 // Hopefully disabling io:sync makes it faster, if not, we need to switch to
 // fopen and printf
-typedef std::map<int, std::map<int, std::vector<int>>> datatype;
 const auto filemode = std::ios_base::out | std::ios_base::binary; // binary mode probably faster
 
 std::string outputDir = "/home/gt/iiit/ire/wikipedia-search/output/";
@@ -18,7 +17,7 @@ void setOutputDir(const std::string &dir) {
     outputDir = dir + "/";
 }
 
-void writeIndex(const datatype &allData) {
+void writeIndex(const data_type &allData) {
     const std::string filename = outputDir + "index" + std::to_string(fileCount);
     fileCount++;
 
@@ -28,8 +27,14 @@ void writeIndex(const datatype &allData) {
 
 #define USE_SS
 
+    pthread_mutex_lock(&term_id_mutex);
     for (const auto &term_data : allData) {
-        const auto &termid = term_data.first;
+        add_term(term_data.first);
+    }
+    pthread_mutex_unlock(&term_id_mutex);
+
+    for (const auto &term_data : allData) {
+        const auto &termid = get_termid(term_data.first);
         const auto &postings = term_data.second;
 
 #ifdef USE_SS
