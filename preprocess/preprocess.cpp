@@ -183,8 +183,9 @@ public:
             freq[zone]++;
         }
 
+        auto &alldata = *(mem->alldata);
         for (auto &ldata : local) {
-            mem->alldata[ldata.first].push_back({page->docid, ldata.second});
+            alldata[ldata.first].push_back({page->docid, ldata.second});
         }
     }
 

@@ -17,7 +17,8 @@ void setOutputDir(const std::string &dir) {
     outputDir = dir + "/";
 }
 
-void writeIndex(const data_type &allData) {
+void writeIndex(const data_type *allDataP) {
+    const auto &allData = *allDataP;
     const std::string filename = outputDir + "index" + std::to_string(fileCount);
     fileCount++;
 

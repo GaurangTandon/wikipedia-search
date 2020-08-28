@@ -27,6 +27,6 @@ typedef struct memory_type {
     WikiPage **store = nullptr;
     int size = 0;
 
-    data_type alldata;
+    data_type* alldata;
 } memory_type;
 
