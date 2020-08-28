@@ -132,21 +132,20 @@ public:
         return ret;
     }
 
-    void processText(memory_type *mem, const WikiPage *page, const int zone, const std::string &text) {
+    std::vector<std::string> getStemmedTokens(const std::string &text, int start, int end) {
         // tokenize
         // stopwords removal
         // stemmer
 
-        int len = text.size();
         std::vector<std::pair<char *, int>> tokens;
         std::vector<std::string> stemmedTokens;
 
-        for (int left = 0; left < len; left++) {
+        for (int left = start; left <= end; left++) {
             if (not validChar(text[left])) continue;
 
             int curr = trie.next(trie.root, lowercase(text[left]));
             int right = left;
-            while (right < len - 1 and validChar(text[right + 1])) {
+            while (right < end and validChar(text[right + 1])) {
                 right++;
                 curr = trie.next(curr, lowercase(text[right]));
             }
@@ -176,6 +175,12 @@ public:
         }
         pthread_mutex_unlock(&stemmer_mutex);
 
+        return stemmedTokens;
+    }
+
+    void processText(memory_type *mem, const WikiPage *page, const int zone, const std::string &text, int start, int end) {
+        auto stemmedTokens = getStemmedTokens(text, start, end);
+
         std::map<std::string, std::vector<int>> local;
         for (auto &term : stemmedTokens) {
             auto &freq = local[term];
@@ -190,13 +195,14 @@ public:
     }
 
     // reduced time from 2.2s to 0.8s (compared to src.substr(pos, target.size()) == target)
+    // target must already be in lowercase
     bool fast_equals(const std::string &src, const std::string &target, int pos = 0) {
         int j = 0, i = pos;
 
         assert(not target.empty());
 
         while (i < src.size()) {
-            if (src[i] != target[j]) return false;
+            if (lowercase(src[i]) != target[j]) return false;
             j++, i++;
             if (j == target.size()) return true;
         }

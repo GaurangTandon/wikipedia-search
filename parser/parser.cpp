@@ -77,8 +77,9 @@ WikiPage::WikiPage(xml::parser &p) {
     }
 }
 
-const std::string INFOBOX = "{{Infobox";
-const std::string CATEGORY = "[[category";
+const std::string TEXT_INFOBOX = "{{infobox";
+const std::string TEXT_CATEGORY = "[[category";
+const std::string TEXT_EXTERNAL_LINKS = "== external links ==";
 Preprocessor *processor;
 
 int extractInfobox(memory_type *mem, WikiPage *page, const std::string &text, int start) {
@@ -98,16 +99,15 @@ int extractInfobox(memory_type *mem, WikiPage *page, const std::string &text, in
         end++;
     }
 
+    // TODO: remove this check later
     if (cnt != 0) {
         std::cout << page->title << std::endl;
         std::cout << cnt << std::endl;
         exit(1);
     }
 
-    // start..end is inclusive
-    auto infobox = text.substr(start, end + 1);
-
-    processor->processText(mem, page, INFOBOX_ZONE, infobox);
+    start += TEXT_INFOBOX.size();
+    processor->processText(mem, page, INFOBOX_ZONE, text, start, end);
 
     return end;
 }
@@ -125,11 +125,24 @@ int extractCategory(memory_type *mem, WikiPage *page, const std::string &text, i
         end++;
     }
 
-    auto category = text.substr(start + CATEGORY.size(), end + 1);
-
-    processor->processText(mem, page, CATEGORY_ZONE, category);
+    start += TEXT_CATEGORY.size();
+    processor->processText(mem, page, CATEGORY_ZONE, text, start, end);
 
     return end;
+}
+
+int extractExternalLinks(memory_type *mem, WikiPage *page, const std::string &text, int start) {
+    int end = start;
+
+    // assume external links are followed by categorical information
+    while (end < text.size() - 1 and not processor->fast_equals(text, TEXT_CATEGORY, end + 1)) {
+        end++;
+    }
+
+    start += TEXT_EXTERNAL_LINKS.size();
+    processor->processText(mem, page, EXTERNAL_LINKS_ZONE, text, start, end);
+
+    return end + 1;
 }
 
 void extractData(memory_type *mem, WikiPage *page) {
@@ -137,16 +150,18 @@ void extractData(memory_type *mem, WikiPage *page) {
     std::string bodyText;
 
     for (int i = 0; i < text.size(); i++) {
-        if (processor->fast_equals(text, INFOBOX, i)) {
+        if (processor->fast_equals(text, TEXT_INFOBOX, i)) {
             i = extractInfobox(mem, page, text, i);
-        } else if (processor->fast_equals(text, CATEGORY, i)) {
+        } else if (processor->fast_equals(text, TEXT_CATEGORY, i)) {
             i = extractCategory(mem, page, text, i);
+        } else if (processor->fast_equals(text, TEXT_EXTERNAL_LINKS, i)) {
+            i = extractExternalLinks(mem, page, text, i);
         } else {
             bodyText += text[i];
         }
     }
 
-    processor->processText(mem, page, TEXT_ZONE, bodyText);
+    processor->processText(mem, page, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
 }
 
 class WikiSiteInfo {
@@ -177,11 +192,6 @@ long double timer;
     timer = calc_time(st, et);
 
 
-// TODO: instead of doing this separately, do this directly while
-// creating the tokens, instead of storing everything in a double-map first
-// and then doing this
-
-
 // writes all the pages seen so far into a file
 void writeToFile(memory_type *mem) {
     long double timer;
@@ -203,8 +213,6 @@ void *thread_checkpoint(void *arg) {
 
     start_time
 
-    int sum = 0;
-
     pthread_mutex_lock(&doc_id_mutex);
     for (int i = 0; i < mem->size; i++) {
         auto &page = mem->store[i];
@@ -212,6 +220,7 @@ void *thread_checkpoint(void *arg) {
     }
     pthread_mutex_unlock(&doc_id_mutex);
 
+    int sum = 0;
     for (int i = 0; i < mem->size; i++) {
         auto &page = mem->store[i];
         sum += page->text.size();
@@ -318,6 +327,15 @@ int main(int argc, char *argv[]) {
         free(memory);
 
         std::cout << "Written terms and docs in time " << timer << '\n';
+
+        std::ofstream stats(outputDir + "invertedindex_stat.txt", std::ios_base::out);
+        stats << -1 << '\n';
+        stats << termIDmapping.size() << '\n';
+        stats.close();
+
+        std::ofstream file_stats(outputDir + "file_stat.txt", std::ios_base::out);
+        stats << currCheck << '\n';
+        file_stats.close();
     } catch (xml::parsing &e) {
         std::cout << e.what() << '\n';
         return 1;
