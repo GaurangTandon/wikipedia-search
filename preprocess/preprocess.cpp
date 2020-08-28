@@ -7,17 +7,75 @@
 #include <pthread.h>
 #include "../libstemmer_c/include/libstemmer.h"
 
+// ignoring apostrophe for now, valid word is just a-z, $, _, 0-9
+
 // wouldn't recommend going below 25 because few popular words
 // like internationalization are very long
 // Full stats: http://norvig.com/mayzner.html
 constexpr int MAX_WORD_LEN = 25;
+
+struct FastTrie {
+    constexpr int char_index(char c) {
+        return c - 'a';
+    }
+
+    static constexpr int N = 26;
+    static constexpr int root = 0;
+
+    std::vector<std::vector<int>> trans;
+    std::vector<bool> isend;
+
+    FastTrie() {
+        trans = {get_def()};
+        isend = {false};
+    }
+
+    static inline std::vector<int> get_def() {
+        return std::vector<int>(N, -1);
+    }
+
+    inline int new_node() {
+        int i = trans.size();
+        trans.push_back(get_def());
+        isend.push_back(false);
+        return i;
+    }
+
+    void insert(std::string &str) {
+        int curr = 0;
+
+        for (auto c : str) {
+            int i = char_index(c);
+            int &next = trans[curr][i];
+
+            if (next == -1) {
+                next = new_node();
+            }
+
+            curr = next;
+        }
+
+        isend[curr] = true;
+    }
+
+    inline int next(int curr, char move) {
+        if (curr == -1) return curr;
+        int i = char_index(move);
+        if (i >= 0 and i < N) return trans[curr][i];
+        else return -1;
+    }
+
+    inline bool is_end_string(int node) {
+        return node != -1 and isend[node];
+    }
+};
 
 class Preprocessor {
 public:
     sb_stemmer *stemmer = nullptr;
     std::set<std::string> stopwords;
     pthread_mutex_t stemmer_mutex = PTHREAD_MUTEX_INITIALIZER;
-
+    FastTrie trie;
 
     Preprocessor() {
         // const char** list = sb_stemmer_list();
@@ -25,15 +83,21 @@ public:
 
         stemmer = sb_stemmer_new("porter", nullptr);
         assert(stemmer != nullptr);
-        std::ifstream stopwords_file("preprocess/stopwords.txt", std::ios_base::in);
+
+        trie = FastTrie();
+
+        std::ifstream stopwords_file("preprocess/stopwords_plain.txt", std::ios_base::in);
+
         int count;
         stopwords_file >> count;
+
         assert(count < 200);
         while (count--) {
             std::string word;
             stopwords_file >> word;
-            stopwords.insert(word);
+            trie.insert(word);
         }
+
         stopwords_file.close();
     }
 
@@ -43,7 +107,7 @@ public:
 
 // O3 will optimize the for loops out
 // https://godbolt.org/z/bT9398
-    inline bool validChar(char c) {
+    inline constexpr bool validChar(char c) {
         if (c >= 'a' and c <= 'z') return true;
         if (c >= 'A' and c <= 'Z') return true;
         if (c >= '0' and c <= '9') return true;
@@ -53,14 +117,9 @@ public:
         return false;
     }
 
-    inline char lowercase(char c) {
+    inline constexpr char lowercase(char c) {
         if (c >= 'A' and c <= 'Z') return c + 32;
         return c;
-    }
-
-    inline bool isStopword(const char *word) {
-        std::string w(word);
-        return stopwords.find(w) != stopwords.end();
     }
 
     // MUST BE CALLED WITH LOCK HELD
@@ -78,27 +137,29 @@ public:
         // stemmer
 
         int len = text.size();
-        std::vector<std::pair<char*, int>> tokens;
+        std::vector<std::pair<char *, int>> tokens;
         std::vector<std::string> stemmedTokens;
 
         for (int left = 0; left < len; left++) {
             if (not validChar(text[left])) continue;
 
+            int curr = trie.next(trie.root, lowercase(text[left]));
             int right = left;
             while (right < len - 1 and validChar(text[right + 1])) {
                 right++;
+                curr = trie.next(curr, lowercase(text[right]));
             }
 
             int word_len = right - left + 1;
 
             if (word_len <= MAX_WORD_LEN) {
-                char *word = (char *) malloc((word_len + 1) * sizeof(char));
-                for (int i = 0; i < word_len; i++) {
-                    word[i] = lowercase(text[i + left]);
-                }
-                word[word_len] = 0;
+                if (not trie.is_end_string(curr)) {
+                    char *word = (char *) malloc((word_len + 1) * sizeof(char));
+                    for (int i = 0; i < word_len; i++) {
+                        word[i] = lowercase(text[i + left]);
+                    }
+                    word[word_len] = 0;
 
-                if (not isStopword(word)) {
                     tokens.push_back({word, word_len});
                 }
             }
