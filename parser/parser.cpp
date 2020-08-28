@@ -16,7 +16,7 @@
 #define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << '\n';
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-const std::string filePath = "parser/official.xml";
+const std::string filePath = "parser/large.xml";
 
 // have text zone first, since most tokens occur in text only
 enum {

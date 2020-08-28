@@ -63,14 +63,11 @@ public:
         return stopwords.find(w) != stopwords.end();
     }
 
+    // MUST BE CALLED WITH LOCK HELD
     inline std::string stemming(const char *word, const int len) {
-        pthread_mutex_lock(&stemmer_mutex);
-
         const sb_symbol *res = sb_stemmer_stem(stemmer, reinterpret_cast<const sb_symbol *>(word), len);
         auto ans = reinterpret_cast<const char *>(res);
         auto ret = std::string(ans);
-
-        pthread_mutex_unlock(&stemmer_mutex);
 
         return ret;
     }
@@ -81,6 +78,7 @@ public:
         // stemmer
 
         int len = text.size();
+        std::vector<std::pair<char*, int>> tokens;
         std::vector<std::string> stemmedTokens;
 
         for (int left = 0; left < len; left++) {
@@ -101,16 +99,20 @@ public:
                 word[word_len] = 0;
 
                 if (not isStopword(word)) {
-//                    std::cout << word << std::endl;
-                    stemmedTokens.push_back(stemming(word, word_len));
-//                    stemmedTokens.push_back(std::string(word));
+                    tokens.push_back({word, word_len});
                 }
-
-                free(word);
             }
 
             left = right + 1;
         }
+
+        stemmedTokens.reserve(tokens.size());
+        pthread_mutex_lock(&stemmer_mutex);
+        for (auto &data : tokens) {
+            stemmedTokens.push_back(stemming(data.first, data.second));
+            free(data.first);
+        }
+        pthread_mutex_unlock(&stemmer_mutex);
 
         return stemmedTokens;
     }
