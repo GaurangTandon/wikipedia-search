@@ -34,24 +34,26 @@ void writeIndex(const data_type *allDataP) {
     }
     pthread_mutex_unlock(&term_id_mutex);
 
+    output << std::to_string(allData.size()) << std::endl;
+
     for (const auto &term_data : allData) {
         const auto &termid = get_termid(term_data.first);
         const auto &postings = term_data.second;
 
 #ifdef USE_SS
         std::stringstream line;
-        line << termid << ":";
+        line << termid << " " << postings.size() << " ";
 #else
-        output << termid << ":";
+        output << termid << " " << postings.size() << " ";
 #endif
 
         for (const auto &doc_data : postings) {
             const auto &docid = doc_data.first;
             const auto &freq = doc_data.second;
 #ifdef USE_SS
-            line << docid << INTRA_SEP;
+            line << docid << " ";
 #else
-            output << docid << INTRA_SEP;
+            output << docid << " ";
 #endif
 
             int lim = freq.size() - 1;

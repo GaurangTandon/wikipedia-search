@@ -6,7 +6,7 @@
 #include <fstream>
 #include <pthread.h>
 #include "../libstemmer_c/include/libstemmer.h"
-#include "../parsing_common.h"
+#include "../common.h"
 
 // ignoring apostrophe for now, valid word is just a-z, $, _, 0-9
 
@@ -73,9 +73,8 @@ struct FastTrie {
 
 class Preprocessor {
 public:
-    sb_stemmer *stemmer = nullptr;
-    std::set<std::string> stopwords;
-    pthread_mutex_t stemmer_mutex = PTHREAD_MUTEX_INITIALIZER;
+    sb_stemmer *stemmer;
+    pthread_mutex_t stemmer_mutex;
     FastTrie trie;
 
     Preprocessor() {
@@ -84,6 +83,8 @@ public:
 
         stemmer = sb_stemmer_new("porter", nullptr);
         assert(stemmer != nullptr);
+
+        stemmer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
         trie = FastTrie();
 
@@ -169,8 +170,9 @@ public:
 
         stemmedTokens.reserve(tokens.size());
         pthread_mutex_lock(&stemmer_mutex);
-        for (auto &data : tokens) {
-            stemmedTokens.push_back(stemming(data.first, data.second));
+        for (const auto &data : tokens) {
+            const auto &str = stemming(data.first, data.second);
+            stemmedTokens.push_back(str);
             free(data.first);
         }
         pthread_mutex_unlock(&stemmer_mutex);
@@ -178,7 +180,8 @@ public:
         return stemmedTokens;
     }
 
-    void processText(memory_type *mem, const WikiPage *page, const int zone, const std::string &text, int start, int end) {
+    void
+    processText(data_type *alldata, const int docid, const int zone, const std::string &text, int start, int end) {
         auto stemmedTokens = getStemmedTokens(text, start, end);
 
         std::map<std::string, std::vector<int>> local;
@@ -188,9 +191,9 @@ public:
             freq[zone]++;
         }
 
-        auto &alldata = *(mem->alldata);
+        auto &alldata_act = *alldata;
         for (auto &ldata : local) {
-            alldata[ldata.first].push_back({page->docid, ldata.second});
+            alldata_act[ldata.first].push_back({docid, ldata.second});
         }
     }
 

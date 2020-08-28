@@ -1,22 +1,17 @@
 #include <map>
 #include <vector>
 #include <string>
-#include "common.h"
+
 class WikiPage {
 public:
     std::string title, text;
     int docid;
-    // each part is governed by zonal markers
-    std::vector<std::vector<std::string>> terms;
 
     WikiPage(xml::parser &p);
 };
 
 // TODO: can probably replace the indexer in map with string
 // directly as in any case we are doing a string access later in get_termid
-
-// data[term_id] = postings list; list[i] = { doc_id, { freq_information }};
-typedef std::map<std::string, std::vector<std::pair<int, std::vector<int>>>> data_type;
 
 typedef struct memory_type {
     WikiPage **store = nullptr;

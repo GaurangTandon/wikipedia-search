@@ -5,6 +5,7 @@
 #include<vector>
 #include "../preprocess/preprocess.cpp"
 #include <pthread.h>
+#include "../parsing_common.h"
 
 #include "../file_handling/termDocIdHandler.cpp"
 
@@ -15,7 +16,7 @@
 #define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << '\n';
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-const std::string filePath = "parser/official.xml";
+const std::string filePath = "parser/large.xml";
 
 struct timespec *st = new timespec(), *et = new timespec();
 int currCheck = 0;
@@ -36,8 +37,6 @@ void allocate_mem() {
 }
 
 WikiPage::WikiPage(xml::parser &p) {
-    terms.resize(ZONE_COUNT);
-
     p.next_expect(xml::parser::start_element, NS, "page");
 
     bool inTitle = false, inText = false;
@@ -83,6 +82,10 @@ const std::string TEXT_CATEGORY = "[[category";
 const std::string TEXT_EXTERNAL_LINKS = "== external links ==";
 Preprocessor *processor;
 
+void processText(memory_type *mem, const WikiPage *page, int zone, const std::string &text, int start, int end) {
+    processor->processText(mem->alldata, page->docid, zone, text, start, end);
+}
+
 int extractInfobox(memory_type *mem, WikiPage *page, const std::string &text, int start) {
     int cnt = 0;
     int end = start;
@@ -108,7 +111,7 @@ int extractInfobox(memory_type *mem, WikiPage *page, const std::string &text, in
     }
 
     start += TEXT_INFOBOX.size();
-    processor->processText(mem, page, INFOBOX_ZONE, text, start, end);
+    processText(mem, page, INFOBOX_ZONE, text, start, end);
 
     return end;
 }
@@ -127,7 +130,7 @@ int extractCategory(memory_type *mem, WikiPage *page, const std::string &text, i
     }
 
     start += TEXT_CATEGORY.size();
-    processor->processText(mem, page, CATEGORY_ZONE, text, start, end);
+    processText(mem, page, CATEGORY_ZONE, text, start, end);
 
     return end;
 }
@@ -141,7 +144,7 @@ int extractExternalLinks(memory_type *mem, WikiPage *page, const std::string &te
     }
 
     start += TEXT_EXTERNAL_LINKS.size();
-    processor->processText(mem, page, EXTERNAL_LINKS_ZONE, text, start, end);
+    processText(mem, page, EXTERNAL_LINKS_ZONE, text, start, end);
 
     return end + 1;
 }
@@ -164,7 +167,7 @@ void extractData(memory_type *mem, WikiPage *page) {
         }
     }
 
-    processor->processText(mem, page, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
+    processText(mem, page, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
 }
 
 class WikiSiteInfo {
@@ -206,7 +209,8 @@ void writeToFile(memory_type *mem) {
 
     end_time
     std::cout << "Written in time " << timer << '\n';
-    delete st; delete et;
+    delete st;
+    delete et;
 }
 
 void *thread_checkpoint(void *arg) {
@@ -226,6 +230,7 @@ void *thread_checkpoint(void *arg) {
     int sum = 0;
     for (int i = 0; i < mem->size; i++) {
         auto &page = mem->store[i];
+        docDetails[page->docid] = page->title;
         sum += page->text.size();
         extractData(mem, page);
     }
@@ -243,7 +248,8 @@ void *thread_checkpoint(void *arg) {
     delete mem->alldata;
     free(mem->store);
     free(mem);
-    delete st; delete et;
+    delete st;
+    delete et;
 
     return nullptr;
 }
@@ -347,7 +353,8 @@ int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC, ett);
     long double global_time = calc_time(stt, ett);
     std::cout << "Total time taken " << global_time << std::endl;
-    delete stt; delete ett;
+    delete stt;
+    delete ett;
 
     return 0;
 }

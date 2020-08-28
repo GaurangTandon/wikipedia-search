@@ -1,0 +1,3 @@
+g++ search/search.cpp libstemmer_c/libstemmer.o $3 -pthread -O0 -g -o search_exe
+
+./search_exe $1 "$2"
