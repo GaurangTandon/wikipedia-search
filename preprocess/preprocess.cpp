@@ -143,11 +143,11 @@ public:
         for (int left = start; left <= end; left++) {
             if (not validChar(text[left])) continue;
 
-            int curr = trie.next(trie.root, lowercase(text[left]));
+            int curr = trie.next(trie.root, text[left]);
             int right = left;
             while (right < end and validChar(text[right + 1])) {
                 right++;
-                curr = trie.next(curr, lowercase(text[right]));
+                curr = trie.next(curr, text[right]);
             }
 
             int word_len = right - left + 1;
@@ -156,7 +156,7 @@ public:
                 if (not trie.is_end_string(curr)) {
                     char *word = (char *) malloc((word_len + 1) * sizeof(char));
                     for (int i = 0; i < word_len; i++) {
-                        word[i] = lowercase(text[i + left]);
+                        word[i] = text[i + left];
                     }
                     word[word_len] = 0;
 
@@ -195,14 +195,14 @@ public:
     }
 
     // reduced time from 2.2s to 0.8s (compared to src.substr(pos, target.size()) == target)
-    // target must already be in lowercase
+    // required: both src and target should be in lowercase, no lowercasing is done here
     bool fast_equals(const std::string &src, const std::string &target, int pos = 0) {
         int j = 0, i = pos;
 
         assert(not target.empty());
 
         while (i < src.size()) {
-            if (lowercase(src[i]) != target[j]) return false;
+            if (src[i] != target[j]) return false;
             j++, i++;
             if (j == target.size()) return true;
         }

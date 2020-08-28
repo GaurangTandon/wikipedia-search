@@ -77,6 +77,7 @@ WikiPage::WikiPage(xml::parser &p) {
     }
 }
 
+// KEEP lowercase
 const std::string TEXT_INFOBOX = "{{infobox";
 const std::string TEXT_CATEGORY = "[[category";
 const std::string TEXT_EXTERNAL_LINKS = "== external links ==";
@@ -148,6 +149,8 @@ int extractExternalLinks(memory_type *mem, WikiPage *page, const std::string &te
 void extractData(memory_type *mem, WikiPage *page) {
     auto &text = page->text;
     std::string bodyText;
+
+    for (auto &c : text) c = processor->lowercase(c);
 
     for (int i = 0; i < text.size(); i++) {
         if (processor->fast_equals(text, TEXT_INFOBOX, i)) {
