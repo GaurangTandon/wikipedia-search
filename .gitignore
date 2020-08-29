@@ -1,7 +1,7 @@
 cmake-build-debug
 .idea
 a.out
-*.xml
+xml_files/*.xml
 __pycache__
 libstemmer_c
 output
