@@ -3,7 +3,7 @@
 #include<iostream>
 #include <ctime>
 #include<vector>
-#include "../preprocess/preprocess.hpp"
+#include "../preprocess/preprocess.cpp"
 #include <pthread.h>
 #include "../parsing_common.h"
 
@@ -16,7 +16,7 @@
 #define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << '\n';
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-const std::string filePath = "parser/large.xml";
+const std::string filePath = "parser/official.xml";
 
 struct timespec *st = new timespec(), *et = new timespec();
 int currCheck = 0;
@@ -139,7 +139,7 @@ int extractExternalLinks(memory_type *mem, WikiPage *page, const std::string &te
     int end = start;
 
     // assume external links are followed by categorical information
-    while (end < text.size() - 1 and not processor->fast_equals(text, TEXT_CATEGORY, end + 1)) {
+    while (end < text.size() - 1 and not Preprocessor::fast_equals(text, TEXT_CATEGORY, end + 1)) {
         end++;
     }
 
@@ -153,14 +153,14 @@ void extractData(memory_type *mem, WikiPage *page) {
     auto &text = page->text;
     std::string bodyText;
 
-    for (auto &c : text) c = processor->lowercase(c);
+    for (auto &c : text) c = Preprocessor::lowercase(c);
 
     for (int i = 0; i < text.size(); i++) {
-        if (processor->fast_equals(text, TEXT_INFOBOX, i)) {
+        if (Preprocessor::fast_equals(text, TEXT_INFOBOX, i)) {
             i = extractInfobox(mem, page, text, i);
-        } else if (processor->fast_equals(text, TEXT_CATEGORY, i)) {
+        } else if (Preprocessor::fast_equals(text, TEXT_CATEGORY, i)) {
             i = extractCategory(mem, page, text, i);
-        } else if (processor->fast_equals(text, TEXT_EXTERNAL_LINKS, i)) {
+        } else if (Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, i)) {
             i = extractExternalLinks(mem, page, text, i);
         } else {
             bodyText += text[i];
@@ -256,10 +256,11 @@ void checkpoint() {
 
 class WikiObject {
 public:
-    WikiObject(xml::parser &p) {
+    explicit WikiObject(xml::parser &p) {
         p.next_expect(xml::parser::start_element, NS, "mediawiki", xml::content::complex);
 
         auto wsi = new WikiSiteInfo(p);
+        delete wsi;
 
         start_time
 
@@ -273,8 +274,6 @@ public:
         }
 
         p.next_expect(xml::parser::end_element, NS, "mediawiki");
-
-        delete wsi;
     }
 };
 

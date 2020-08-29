@@ -84,8 +84,6 @@ Preprocessor::~Preprocessor() {
     sb_stemmer_delete(stemmer);
 }
 
-// O3 will optimize the for loops out
-// https://godbolt.org/z/bT9398
 inline constexpr bool Preprocessor::validChar(char c) {
     if (c >= 'a' and c <= 'z') return true;
     if (c >= 'A' and c <= 'Z') return true;
@@ -107,9 +105,11 @@ inline std::string Preprocessor::stemming(const sb_symbol *word, const int len) 
     int new_len = sb_stemmer_length(stemmer);
 
     std::string ret;
+    ret.reserve(new_len);
     for (int i = 0; i < new_len; i++) {
         ret += res[i];
     }
+
     return ret;
 }
 

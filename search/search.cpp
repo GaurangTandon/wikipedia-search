@@ -5,7 +5,7 @@
 #include <limits>
 #include <pthread.h>
 #include <ctime>
-#include "../preprocess/preprocess.hpp"
+#include "../preprocess/preprocess.cpp"
 
 constexpr int BLOCK_SIZE = 5;
 #define ceil(x, y) (x + y - 1) / y
@@ -208,17 +208,21 @@ int main(int argc, char *argv[]) {
         zoneI++;
     }
 
+    zoneI = 0;
     for (auto &result : searchResults) {
+        std::cout << "Zone " << reverseZonal[zoneI] << std::endl;
         for (auto &title : result) {
             std::cout << title << "; ";
         }
         std::cout << std::endl;
         std::cout << "------";
         std::cout << std::endl;
+        zoneI++;
     }
 
     delete processor;
     end_time
+
     std::cout << "Search finished in time " << timer << std::endl;
 
     return 0;

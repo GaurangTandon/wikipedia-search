@@ -2,7 +2,16 @@
 
 // have text zone first, since most tokens occur in text only
 enum {
-    TEXT_ZONE, INFOBOX_ZONE, CATEGORY_ZONE, TITLE_ZONE, EXTERNAL_LINKS_ZONE, ZONE_COUNT
+    TEXT_ZONE, INFOBOX_ZONE, CATEGORY_ZONE, TITLE_ZONE, EXTERNAL_LINKS_ZONE, REFERENCES_ZONE, ZONE_COUNT
+};
+
+std::map<int, std::string> reverseZonal = {
+        {TEXT_ZONE, "Body"},
+        {INFOBOX_ZONE, "Infobox"},
+        {CATEGORY_ZONE, "Category"},
+        {TITLE_ZONE, "Title"},
+        {EXTERNAL_LINKS_ZONE, "External links"},
+        {REFERENCES_ZONE, "References"}
 };
 
 // data[term_id] = postings list; list[i] = { doc_id, { freq_information }};

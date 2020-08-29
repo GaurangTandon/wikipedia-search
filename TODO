@@ -1,3 +1,4 @@
+- make a cache of stemmer; pystemmer does that: https://github.com/snowballstem/pystemmer/blob/master/docs/quickstart.txt
 - create the merged index file
 - support more sections
 - look into on-the-fly zipped file i/o
