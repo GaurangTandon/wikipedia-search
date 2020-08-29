@@ -4,9 +4,9 @@
 #include <set>
 #include <limits>
 #include <pthread.h>
-#include "../preprocess/preprocess.cpp"
+#include "../preprocess/preprocess.hpp"
 
-Preprocessor processor;
+Preprocessor *processor;
 std::string outputDir;
 std::map<std::string, int> termIDMap;
 std::map<int, std::string> docIdMap;
@@ -56,20 +56,23 @@ void *searchFileThreaded(void *arg) {
     assert(not ids.empty());
     auto it = ids.begin();
 
-    std::ifstream file(outputDir + "index" + std::to_string(query->number), std::ios_base::in);
+    std::string filepath = outputDir + "index" + std::to_string(query->number);
+    std::ifstream file(filepath, std::ios_base::in);
     std::set<int> docids;
 
     int count;
     file >> count;
     for (int i = 0; i < count; i++) {
-        int id; file >> id;
+        int id;
+        file >> id;
 
         if (id < *it) {
             file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             continue;
         }
 
-        int docCount; file >> docCount;
+        int docCount;
+        file >> docCount;
         for (int j = 0; j < docCount; j++) {
             int docid;
             file >> docid;
@@ -78,7 +81,8 @@ void *searchFileThreaded(void *arg) {
 
             while (true) {
                 file >> freq[k++];
-                char c; file >> c;
+                char c;
+                file >> c;
                 if (c == ';') break;
             }
 
@@ -93,39 +97,45 @@ void *searchFileThreaded(void *arg) {
     auto &vec = (*(query->sharedMem))[query->number];
     vec.insert(vec.end(), docids.begin(), docids.end());
 
+    delete query;
     return nullptr;
 }
 
 std::set<int> performSearch(const std::string &query, int zone) {
     auto shared_data = new shared_mem_type(fileCount);
 
-    auto tokens = processor.getStemmedTokens(query, 0, query.size() - 1);
-    std::set<int> tokenIDS;
+//    auto tokens = processor.getStemmedTokens(query, 0, query.size() - 1);
+    auto tokens = {"india"};
+    auto tokenIDS = new std::set<int>();
     for (auto &token : tokens) {
-        tokenIDS.insert(termIDMap[token]);
+        auto id = termIDMap[token];
+        tokenIDS->insert(id);
     }
 
-    pthread_t threads[fileCount];
+    std::vector<pthread_t> threads(fileCount);
 
     for (int i = 0; i < fileCount; i++) {
-        query_type queryData;
-        queryData.tokens = &tokenIDS;
-        queryData.sharedMem = shared_data;
-        queryData.zone = zone;
-        queryData.number = i;
-        pthread_create(&threads[i], nullptr, searchFileThreaded, &queryData);
+        query_type *queryData = new query_type();
+        queryData->tokens = tokenIDS;
+        queryData->sharedMem = shared_data;
+        queryData->zone = zone;
+        queryData->number = i;
+        pthread_create(&threads[i], nullptr, searchFileThreaded, queryData);
     }
 
-    std::set<int> docIds;
     for (int i = 0; i < fileCount; i++) {
         pthread_join(threads[i], nullptr);
     }
 
+    std::set<int> docIds;
     const auto shared_data_deref = *shared_data;
     for (const auto &data : shared_data_deref) {
         if (data.empty()) continue;
         docIds.insert(data.begin(), data.end());
     }
+
+    delete tokenIDS;
+    delete shared_data;
 
     return docIds;
 }
@@ -154,12 +164,12 @@ void readDocIds() {
 
 int main(int argc, char *argv[]) {
     assert(argc == 3);
-    processor = Preprocessor();
+    processor = new Preprocessor();
     outputDir = std::string(argv[1]) + "/";
 
-    std::ifstream fileStats(outputDir + "file_stats.txt", std::ios_base::in);
+    std::ifstream fileStats(outputDir + "file_stat.txt", std::ios_base::in);
     fileStats >> fileCount;
-    assert(fileCount < 30);
+    assert(fileCount > 0 and fileCount < 30);
 
     readTermIds();
     readDocIds();
@@ -185,5 +195,6 @@ int main(int argc, char *argv[]) {
         std::cout << std::endl;
     }
 
+    delete processor;
     return 0;
 }

@@ -3,7 +3,7 @@
 #include<iostream>
 #include <ctime>
 #include<vector>
-#include "../preprocess/preprocess.cpp"
+#include "../preprocess/preprocess.hpp"
 #include <pthread.h>
 #include "../parsing_common.h"
 
@@ -343,7 +343,7 @@ int main(int argc, char *argv[]) {
         stats.close();
 
         std::ofstream file_stats(outputDir + "file_stat.txt", std::ios_base::out);
-        stats << currCheck << '\n';
+        file_stats << currCheck << '\n';
         file_stats.close();
     } catch (xml::parsing &e) {
         std::cout << e.what() << '\n';
