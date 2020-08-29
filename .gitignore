@@ -4,6 +4,7 @@ a.out
 *.o
 xml_files/*.xml
 __pycache__
+stat.txt
 output
 parser_exe
 search_exe
