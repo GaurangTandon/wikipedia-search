@@ -1,5 +1,4 @@
 - make a cache of stemmer; pystemmer does that: https://github.com/snowballstem/pystemmer/blob/master/docs/quickstart.txt
 - create the merged index file
-- support more sections
 - look into on-the-fly zipped file i/o
-- write search script
+- `bash ./search.sh output 'e:doctorwho'` does not still give result of TARDIS

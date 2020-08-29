@@ -10,7 +10,7 @@ include_directories(parser)
 include_directories(libstemmer_c)
 
 SET(OBJS
-    libstemmer_c/libstemmer.o
+    src/libstemmer_c/libstemmer.o
     /usr/local  /lib/libstudxml.a)
 
 SET_SOURCE_FILES_PROPERTIES(
@@ -22,8 +22,8 @@ SET_SOURCE_FILES_PROPERTIES(
 
 add_executable(wikipedia_search
         ${OBJS}
-        parser/parser.cpp)
+        src/parser/parser.cpp)
 
 add_executable(searcher
         ${OBJS}
-        search/search.cpp)
+        src/search/search.cpp)

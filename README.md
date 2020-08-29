@@ -10,11 +10,19 @@ Blazingly fast search for wikipedia, faster than google, deployed on aws
 
   - `make clean`: to clean all binaries
   - `make`: compiles the stemmer, indexer and search binary.
-  - After the make step, the exe are symlinked to the present working directory.
 
 ## Running
 
+Use src/index.sh and src/search.sh. Usage is in file comments.
 
+## Useful search queries
+
+1. `i:egypt`
+2. `i:sachin`
+3. `people`
+4. `t:Arabic`
+5. `c:cricket`
+6. `e:anarchism`
 
 ## Stats
 

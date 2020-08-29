@@ -10,10 +10,10 @@ CXXFLAGS = -pthread -O3
 debug: prep runner searcher
 all: prep runner searcher
 
-searcher: search/search.cpp
+searcher: $(EXEDIR)/search.sh
 	$(CXX) search/search.cpp $(STEM_EXE) $(CXXFLAGS) -o $(EXEDIR)/search.sh
 
-runner: parser/parser.cpp
+runner: $(EXEDIR)/index.sh
 	$(CXX) parser/parser.cpp $(LIBSTUDXML_EXE) $(STEM_EXE) $(CXXFLAGS) -o $(EXEDIR)/index.sh
 
 prep:

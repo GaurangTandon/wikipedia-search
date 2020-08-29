@@ -77,16 +77,19 @@ WikiPage::WikiPage(xml::parser &p) {
 }
 
 // KEEP lowercase
-const std::string TEXT_INFOBOX = "{{infobox";
-const std::string TEXT_CATEGORY = "[[category";
-const std::string TEXT_EXTERNAL_LINKS = "== external links ==";
+const std::vector<std::string> TEXT_INFOBOX = {"{{infobox", "{{ infobox"};
+const std::vector<std::string> TEXT_CATEGORY = {"[[category", "[[ category"};
+const std::vector<std::string> TEXT_EXTERNAL_LINKS = {"== external links ==", "==external links==",
+                                                      "== external links==", "==external links =="};
+const std::vector<std::string> TEXT_REFERENCES = {"== references ==", "==references==", "== references==",
+                                                  "==references =="};
 Preprocessor *processor;
 
-void processText(memory_type *mem, const WikiPage *page, int zone, const std::string &text, int start, int end) {
+inline void processText(memory_type *mem, const WikiPage *page, int zone, const std::string &text, int start, int end) {
     totalTokenCount += processor->processText(mem->alldata, page->docid, zone, text, start, end);
 }
 
-int extractInfobox(memory_type *mem, WikiPage *page, const std::string &text, int start) {
+int extractInfobox(const std::string &text, const int start) {
     int cnt = 0;
     int end = start;
 
@@ -105,21 +108,16 @@ int extractInfobox(memory_type *mem, WikiPage *page, const std::string &text, in
 
     // TODO: remove this check later
     if (cnt != 0) {
-        std::cout << page->title << std::endl;
+//        std::cout << page->title << std::endl;
         std::cout << cnt << std::endl;
         exit(1);
     }
 
-    start += TEXT_INFOBOX.size();
-    processText(mem, page, INFOBOX_ZONE, text, start, end);
-
     return end;
 }
 
-int extractCategory(memory_type *mem, WikiPage *page, const std::string &text, int start) {
+int extractCategory(const std::string &text, const int start) {
     int end = start;
-
-    assert(not text.empty());
 
     while (end < text.size() - 1) {
         if (text[end] == ']' and text[end + 1] == ']') {
@@ -129,13 +127,10 @@ int extractCategory(memory_type *mem, WikiPage *page, const std::string &text, i
         end++;
     }
 
-    start += TEXT_CATEGORY.size();
-    processText(mem, page, CATEGORY_ZONE, text, start, end);
-
     return end;
 }
 
-int extractExternalLinks(memory_type *mem, WikiPage *page, const std::string &text, int start) {
+int extractExternalLinks(const std::string &text, const int start) {
     int end = start;
 
     // assume external links are followed by categorical information
@@ -143,10 +138,19 @@ int extractExternalLinks(memory_type *mem, WikiPage *page, const std::string &te
         end++;
     }
 
-    start += TEXT_EXTERNAL_LINKS.size();
-    processText(mem, page, EXTERNAL_LINKS_ZONE, text, start, end);
+    return end;
+}
 
-    return end + 1;
+int extractReferences(const std::string &text, int start) {
+    int end = start;
+
+    // assume external links are followed by categorical information
+    while (end < text.size() - 1 and not Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, end + 1) and
+           not Preprocessor::fast_equals(text, TEXT_CATEGORY, end + 1)) {
+        end++;
+    }
+
+    return end;
 }
 
 void extractData(memory_type *mem, WikiPage *page) {
@@ -156,18 +160,38 @@ void extractData(memory_type *mem, WikiPage *page) {
     for (auto &c : text) c = Preprocessor::lowercase(c);
 
     for (int i = 0; i < text.size(); i++) {
+        int end = -1;
+        int start = i;
+        int zone = -1;
+
         if (Preprocessor::fast_equals(text, TEXT_INFOBOX, i)) {
-            i = extractInfobox(mem, page, text, i);
+            start += TEXT_INFOBOX.size();
+            zone = INFOBOX_ZONE;
+            end = extractInfobox(text, i);
         } else if (Preprocessor::fast_equals(text, TEXT_CATEGORY, i)) {
-            i = extractCategory(mem, page, text, i);
+            start += TEXT_CATEGORY.size();
+            zone = CATEGORY_ZONE;
+            end = extractCategory(text, i);
         } else if (Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, i)) {
-            i = extractExternalLinks(mem, page, text, i);
+            start += TEXT_EXTERNAL_LINKS.size();
+            zone = EXTERNAL_LINKS_ZONE;
+            end = extractExternalLinks(text, i);
+        } else if (Preprocessor::fast_equals(text, TEXT_REFERENCES, i)) {
+            start += TEXT_REFERENCES.size();
+            zone = REFERENCES_ZONE;
+            end = extractReferences(text, i);
         } else {
             bodyText += text[i];
+        }
+
+        if (zone != -1) {
+            processText(mem, page, zone, text, start, end);
+            i = end;
         }
     }
 
     processText(mem, page, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
+    processText(mem, page, TITLE_ZONE, page->title, 0, page->title.size() - 1);
 }
 
 class WikiSiteInfo {
