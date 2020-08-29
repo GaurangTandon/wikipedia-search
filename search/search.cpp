@@ -52,8 +52,10 @@ typedef struct query_type {
 void *searchFileThreaded(void *arg) {
     const auto *query = (query_type *) arg;
     const auto &ids = *(query->tokens);
+    if (ids.empty()) {
+        return nullptr;
+    }
 
-    assert(not ids.empty());
     auto it = ids.begin();
 
     std::string filepath = outputDir + "index" + std::to_string(query->number);
@@ -97,15 +99,14 @@ void *searchFileThreaded(void *arg) {
     auto &vec = (*(query->sharedMem))[query->number];
     vec.insert(vec.end(), docids.begin(), docids.end());
 
-    delete query;
     return nullptr;
 }
 
 std::set<int> performSearch(const std::string &query, int zone) {
     auto shared_data = new shared_mem_type(fileCount);
 
-//    auto tokens = processor.getStemmedTokens(query, 0, query.size() - 1);
-    auto tokens = {"india"};
+    auto tokens = processor->getStemmedTokens(query, 0, query.size() - 1);
+//    auto tokens = {"india"};
     auto tokenIDS = new std::set<int>();
     for (auto &token : tokens) {
         auto id = termIDMap[token];
@@ -113,18 +114,21 @@ std::set<int> performSearch(const std::string &query, int zone) {
     }
 
     std::vector<pthread_t> threads(fileCount);
+    std::vector<query_type*> query_data_vec(fileCount);
 
     for (int i = 0; i < fileCount; i++) {
-        query_type *queryData = new query_type();
+        auto queryData = new query_type();
         queryData->tokens = tokenIDS;
         queryData->sharedMem = shared_data;
         queryData->zone = zone;
         queryData->number = i;
+        query_data_vec[i] = queryData;
         pthread_create(&threads[i], nullptr, searchFileThreaded, queryData);
     }
 
     for (int i = 0; i < fileCount; i++) {
         pthread_join(threads[i], nullptr);
+        delete query_data_vec[i];
     }
 
     std::set<int> docIds;

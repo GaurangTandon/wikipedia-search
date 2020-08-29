@@ -56,14 +56,12 @@ inline bool FastTrie::is_end_string(int node) {
     return node != -1 and isend[node];
 }
 
-Preprocessor::Preprocessor() {
+Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
     // const char** list = sb_stemmer_list();
     // there is porter2 in this
 
     stemmer = sb_stemmer_new("porter", nullptr);
     assert(stemmer != nullptr);
-
-    stemmer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
     trie = FastTrie();
 
@@ -99,12 +97,12 @@ inline constexpr bool Preprocessor::validChar(char c) {
 }
 
 inline constexpr char Preprocessor::lowercase(char c) {
-    if (c >= 'A' and c <= 'Z') return c + 32;
+    if (c >= 'A' and c <= 'Z') return (char) (c + 32);
     return c;
 }
 
 // MUST BE CALLED WITH LOCK HELD
-inline std::string Preprocessor::stemming(const sb_symbol *word, const int len) {
+inline std::string Preprocessor::stemming(const sb_symbol *word, const int len) const {
     const sb_symbol *res = sb_stemmer_stem(stemmer, word, len);
     int new_len = sb_stemmer_length(stemmer);
 
@@ -126,7 +124,7 @@ std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text,
     for (int left = start; left <= end; left++) {
         if (not validChar(text[left])) continue;
 
-        int curr = trie.next(trie.root, text[left]);
+        int curr = trie.next(FastTrie::root, text[left]);
         int right = left;
         while (right < end and validChar(text[right + 1])) {
             right++;
@@ -136,12 +134,12 @@ std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text,
         int word_len = right - left + 1;
 
         if (word_len <= MAX_WORD_LEN and not trie.is_end_string(curr)) {
-            sb_symbol *word = (sb_symbol *) malloc(word_len * sizeof(sb_symbol));
+            auto *word = (sb_symbol *) malloc(word_len * sizeof(sb_symbol));
             for (int i = 0; i < word_len; i++) {
                 word[i] = text[i + left];
             }
 
-            tokens.push_back({word, word_len});
+            tokens.emplace_back(word, word_len);
         }
 
         left = right + 1;
