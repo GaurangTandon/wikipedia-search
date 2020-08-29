@@ -1,5 +1,6 @@
 # built thanks to https://stackoverflow.com/a/20830354
 
+LIBSTEM = libstemmer_c
 EXEDIR = dist
 CXXFLAGS = -pthread
 
@@ -16,6 +17,7 @@ runner:
 
 prep:
 	@mkdir -p $(EXEDIR)
+	$(MAKE) -C $(LIBSTEM)
 
 remake: clean all
 
@@ -26,4 +28,5 @@ postcomplete:
 
 clean:
 	rm -r $(EXEDIR)
+	$(MAKE) -C $(LIBSTEM) clean
 	

@@ -1,9 +1,9 @@
 cmake-build-debug
 .idea
 a.out
+*.o
 xml_files/*.xml
 __pycache__
-libstemmer_c
 output
 parser_exe
 search_exe
