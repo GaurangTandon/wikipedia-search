@@ -1,1 +1,0 @@
-./makesearch $1 "$2" "-fsanitize=address -fsanitize=undefined"

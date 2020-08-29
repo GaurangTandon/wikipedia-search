@@ -11,7 +11,7 @@ include_directories(libstemmer_c)
 
 SET(OBJS
     libstemmer_c/libstemmer.o
-    /usr/local/lib/libstudxml.a)
+    /usr/local  /lib/libstudxml.a)
 
 SET_SOURCE_FILES_PROPERTIES(
         ${OBJS}
