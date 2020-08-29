@@ -5,6 +5,8 @@ enum {
     TEXT_ZONE, INFOBOX_ZONE, CATEGORY_ZONE, TITLE_ZONE, EXTERNAL_LINKS_ZONE, REFERENCES_ZONE, ZONE_COUNT
 };
 
+typedef std::map<std::string, std::vector<int>> local_data_type;
+
 std::map<int, std::string> reverseZonal = {
         {TEXT_ZONE, "Body"},
         {INFOBOX_ZONE, "Infobox"},

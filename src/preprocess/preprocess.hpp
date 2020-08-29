@@ -43,10 +43,12 @@ struct Preprocessor {
     static inline constexpr bool validChar(char c);
 
     static bool fast_equals(const std::string &src, const std::string &target, int pos = 0);
+
     static bool fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos = 0);
 
-    int processText(data_type *alldata, int docid, int zone, const std::string &text, int start,
-                     int end);
+    int processText(local_data_type &localData, const int zone, const std::string &text, int start, int end);
+
+    void dumpText(data_type *alldata, const int docid, const local_data_type &localData);
 
     std::vector<std::string> getStemmedTokens(const std::string &text, int start, int end);
 

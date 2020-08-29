@@ -85,8 +85,8 @@ const std::vector<std::string> TEXT_REFERENCES = {"== references ==", "==referen
                                                   "==references =="};
 Preprocessor *processor;
 
-inline void processText(memory_type *mem, const WikiPage *page, int zone, const std::string &text, int start, int end) {
-    totalTokenCount += processor->processText(mem->alldata, page->docid, zone, text, start, end);
+inline void processText(local_data_type &localData, int zone, const std::string &text, int start, int end) {
+    totalTokenCount += processor->processText(localData, zone, text, start, end);
 }
 
 int extractInfobox(const std::string &text, const int start) {
@@ -156,6 +156,7 @@ int extractReferences(const std::string &text, int start) {
 void extractData(memory_type *mem, WikiPage *page) {
     auto &text = page->text;
     std::string bodyText;
+    local_data_type localData;
 
     for (auto &c : text) c = Preprocessor::lowercase(c);
 
@@ -185,13 +186,15 @@ void extractData(memory_type *mem, WikiPage *page) {
         }
 
         if (zone != -1) {
-            processText(mem, page, zone, text, start, end);
+            processText(localData, zone, text, start, end);
             i = end;
         }
     }
 
-    processText(mem, page, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
-    processText(mem, page, TITLE_ZONE, page->title, 0, page->title.size() - 1);
+    processText(localData, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
+    processText(localData, TITLE_ZONE, page->title, 0, page->title.size() - 1);
+
+    processor->dumpText(mem->alldata, page->docid, localData);
 }
 
 class WikiSiteInfo {

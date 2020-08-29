@@ -65,7 +65,9 @@ void *searchFileThreaded(void *arg) {
     const auto token_end = query->tokens->end();
     std::set<int> docids;
 
-    for (int currFile = query->block * BLOCK_SIZE, lim = currFile + BLOCK_SIZE; currFile < lim; currFile++) {
+#define min(x, y) ((x) < (y) ? (x) : (y))
+
+    for (int currFile = query->block * BLOCK_SIZE, lim = min(fileCount, currFile + BLOCK_SIZE); currFile < lim; currFile++) {
         std::string filepath = outputDir + "index" + std::to_string(currFile);
         std::ifstream file(filepath, std::ios_base::in);
 
@@ -88,6 +90,7 @@ void *searchFileThreaded(void *arg) {
             for (int j = 0; j < docCount; j++) {
                 int docid;
                 file >> docid;
+
                 std::vector<int> freq(ZONE_COUNT, 0);
                 int k = 0;
 
@@ -204,7 +207,9 @@ int main(int argc, char *argv[]) {
     for (const auto &zone : zonalQueries) {
         const auto docIds = performSearch(zone, zoneI);
         for (const auto id : docIds) {
-            searchResults[zoneI].push_back(docIdMap[id]);
+            const auto &str = docIdMap[id];
+            assert(not str.empty());
+            searchResults[zoneI].push_back(str);
         }
         zoneI++;
     }

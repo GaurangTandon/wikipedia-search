@@ -158,24 +158,25 @@ std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text,
 }
 
 int
-Preprocessor::processText(data_type *alldata, const int docid, const int zone, const std::string &text, int start,
-                          int end) {
+Preprocessor::processText(local_data_type &localData, const int zone, const std::string &text, int start, int end) {
     auto stemmedTokens = getStemmedTokens(text, start, end);
 
-    std::map<std::string, std::vector<int>> local;
     for (auto &term : stemmedTokens) {
-        auto &freq = local[term];
+        auto &freq = localData[term];
         if (freq.empty()) freq = std::vector<int>(ZONE_COUNT);
         freq[zone]++;
     }
 
-    auto &alldata_act = *alldata;
-    for (auto &ldata : local) {
-        alldata_act[ldata.first].push_back({docid, ldata.second});
-    }
-
     return stemmedTokens.size();
 }
+
+void Preprocessor::dumpText(data_type *alldata, const int docid, const local_data_type &localData) {
+    auto &alldata_act = *alldata;
+    for (const auto &ldata : localData) {
+        alldata_act[ldata.first].push_back({docid, ldata.second});
+    }
+}
+
 
 // reduced time from 2.2s to 0.8s (compared to src.substr(pos, target.size()) == target)
 // required: both src and target should be in lowercase, no lowercasing is done here

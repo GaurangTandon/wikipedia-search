@@ -5,7 +5,7 @@ LIBSTEM = libstemmer_c
 EXEDIR = dist
 
 STEM_EXE = $(LIBSTEM)/libstemmer.o
-CXXFLAGS = -pthread -O3
+CXXFLAGS = -pthread -O3 # -O0 -g -fsanitize=address -fsanitize=undefined
 
 debug: prep runner searcher
 all: prep runner searcher
