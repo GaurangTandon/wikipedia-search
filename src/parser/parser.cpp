@@ -192,7 +192,9 @@ void extractData(memory_type *mem, WikiPage *page) {
     }
 
     processText(localData, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
-    processText(localData, TITLE_ZONE, page->title, 0, page->title.size() - 1);
+    auto title_copy = page->title;
+    for (auto &c : title_copy) c = Preprocessor::lowercase(c);
+    processText(localData, TITLE_ZONE, title_copy, 0, title_copy.size() - 1);
 
     processor->dumpText(mem->alldata, page->docid, localData);
 }

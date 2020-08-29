@@ -43,6 +43,13 @@ std::vector<std::string> extractZonalQueries(char *query) {
         query++;
     }
 
+
+    std::cout << "Extracted queries" << '\n';
+    for (int i = 0; i < ZONE_COUNT; i++) {
+        std::cout << "Zone " << reverseZonal[i] << ": " << zonalQueries[i] << std::endl;
+    }
+    std::cout << "----\n";
+
     return zonalQueries;
 }
 
