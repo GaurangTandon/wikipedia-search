@@ -5,32 +5,26 @@ LIBSTEM = libstemmer_c
 EXEDIR = dist
 
 STEM_EXE = $(LIBSTEM)/libstemmer.o
-CXXFLAGS = -pthread
+CXXFLAGS = -pthread -O3
 
-all: CXXFLAGS += -O3
-debug: CXXFLAGS += -g -O0
-
-debug: prep runner searcher postcomplete
-all: prep runner searcher postcomplete
+debug: prep runner searcher
+all: prep runner searcher
 
 searcher: search/search.cpp
-	$(CXX) $(CXXFLAGS) $(STEM_EXE) search/search.cpp -o $(EXEDIR)/search.sh
+	$(CXX) search/search.cpp $(STEM_EXE) $(CXXFLAGS) -o $(EXEDIR)/search.sh
 
 runner: parser/parser.cpp
-	$(CXX) $(CXXFLAGS) $(LIBSTUDXML_EXE) $(STEM_EXE) parser/parser.cpp -o $(EXEDIR)/index.sh
+	$(CXX) parser/parser.cpp $(LIBSTUDXML_EXE) $(STEM_EXE) $(CXXFLAGS) -o $(EXEDIR)/index.sh
 
 prep:
 	@mkdir -p $(EXEDIR)
 	$(MAKE) -C $(LIBSTEM)
 
+clean:
+	rm -fr $(EXEDIR)
+	
+clean_full: clean
+	$(MAKE) -C $(LIBSTEM) clean
+
 remake: clean all
 
-# required as per assignment
-postcomplete:
-	ln -s $(EXEDIR)/search.sh search.sh
-	ln -s $(EXEDIR)/index.sh index.sh
-
-clean:
-	rm -r $(EXEDIR)
-	$(MAKE) -C $(LIBSTEM) clean
-	
