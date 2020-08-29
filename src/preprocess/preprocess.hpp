@@ -5,7 +5,7 @@
 #include <fstream>
 #include <pthread.h>
 #include "../libstemmer_c/include/libstemmer.h"
-#include "../common.h"
+#include "../headers/common.h"
 
 struct FastTrie {
     static constexpr int N = 26;

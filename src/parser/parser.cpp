@@ -5,7 +5,7 @@
 #include<vector>
 #include "../preprocess/preprocess.cpp"
 #include <pthread.h>
-#include "../parsing_common.h"
+#include "../headers/parsing_common.h"
 
 #include "../file_handling/termDocIdHandler.cpp"
 
