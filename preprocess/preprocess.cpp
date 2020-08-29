@@ -125,11 +125,14 @@ public:
     }
 
     // MUST BE CALLED WITH LOCK HELD
-    inline std::string stemming(const char *word, const int len) {
-        const sb_symbol *res = sb_stemmer_stem(stemmer, reinterpret_cast<const sb_symbol *>(word), len);
-        auto ans = reinterpret_cast<const char *>(res);
-        auto ret = std::string(ans);
+    inline std::string stemming(const sb_symbol *word, const int len) {
+        const sb_symbol *res = sb_stemmer_stem(stemmer, word, len);
+        int new_len = sb_stemmer_length(stemmer);
 
+        std::string ret;
+        for (int i = 0; i < new_len; i++) {
+            ret += res[i];
+        }
         return ret;
     }
 
@@ -138,7 +141,7 @@ public:
         // stopwords removal
         // stemmer
 
-        std::vector<std::pair<char *, int>> tokens;
+        std::vector<std::pair<sb_symbol *, int>> tokens;
         std::vector<std::string> stemmedTokens;
 
         for (int left = start; left <= end; left++) {
@@ -153,16 +156,13 @@ public:
 
             int word_len = right - left + 1;
 
-            if (word_len <= MAX_WORD_LEN) {
-                if (not trie.is_end_string(curr)) {
-                    char *word = (char *) malloc((word_len + 1) * sizeof(char));
-                    for (int i = 0; i < word_len; i++) {
-                        word[i] = text[i + left];
-                    }
-                    word[word_len] = 0;
-
-                    tokens.push_back({word, word_len});
+            if (word_len <= MAX_WORD_LEN and not trie.is_end_string(curr)) {
+                sb_symbol *word = (sb_symbol *) malloc(word_len * sizeof(sb_symbol));
+                for (int i = 0; i < word_len; i++) {
+                    word[i] = text[i + left];
                 }
+
+                tokens.push_back({word, word_len});
             }
 
             left = right + 1;

@@ -97,8 +97,9 @@ void *searchFileThreaded(void *arg) {
 }
 
 std::set<int> performSearch(const std::string &query, int zone) {
-    auto tokens = processor.getStemmedTokens(query, 0, query.size() - 1);
     auto shared_data = new shared_mem_type(fileCount);
+
+    auto tokens = processor.getStemmedTokens(query, 0, query.size() - 1);
     std::set<int> tokenIDS;
     for (auto &token : tokens) {
         tokenIDS.insert(termIDMap[token]);
