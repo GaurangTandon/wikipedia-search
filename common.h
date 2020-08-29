@@ -7,3 +7,11 @@ enum {
 
 // data[term_id] = postings list; list[i] = { doc_id, { freq_information }};
 typedef std::map<std::string, std::vector<std::pair<int, std::vector<int>>>> data_type;
+
+#define start_time clock_gettime(CLOCK_MONOTONIC, st);
+
+#define calc_time(st, et) ((et->tv_sec - st->tv_sec) + 1e-9l * (et->tv_nsec - st->tv_nsec))
+
+#define end_time \
+    clock_gettime(CLOCK_MONOTONIC, et); \
+    timer = calc_time(st, et);
