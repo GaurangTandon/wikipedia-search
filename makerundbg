@@ -1,1 +1,0 @@
-./makerun $1 '-g -fsanitize=address -fsanitize=undefined'

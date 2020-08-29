@@ -171,10 +171,9 @@ void readDocIds() {
     std::ifstream docIDs(outputDir + "docs", std::ios_base::in);
     int docCount;
     docIDs >> docCount;
+    docIDs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    for (int i = 0; i < docCount; i++) {
-        int id;
-        docIDs >> id;
+    for (int id = 1; id <= docCount; id++) {
         getline(docIDs, docIdMap[id]);
     }
 }

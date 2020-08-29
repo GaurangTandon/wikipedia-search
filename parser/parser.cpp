@@ -16,7 +16,8 @@
 #define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << '\n';
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-const std::string filePath = "parser/official.xml";
+std::string filePath;
+int totalTokenCount = 0;
 
 struct timespec *st = new timespec(), *et = new timespec();
 int currCheck = 0;
@@ -25,8 +26,7 @@ constexpr int MX_THREADS = 100;
 pthread_t threads[MX_THREADS];
 int threadCount = 0;
 
-constexpr int MX_MEM = 1000;
-
+constexpr int MX_MEM = 1500;
 memory_type *memory;
 
 void allocate_mem() {
@@ -83,7 +83,7 @@ const std::string TEXT_EXTERNAL_LINKS = "== external links ==";
 Preprocessor *processor;
 
 void processText(memory_type *mem, const WikiPage *page, int zone, const std::string &text, int start, int end) {
-    processor->processText(mem->alldata, page->docid, zone, text, start, end);
+    totalTokenCount += processor->processText(mem->alldata, page->docid, zone, text, start, end);
 }
 
 int extractInfobox(memory_type *mem, WikiPage *page, const std::string &text, int start) {
@@ -285,10 +285,11 @@ int main(int argc, char *argv[]) {
     std::cin.tie(nullptr);
     std::cout.tie(nullptr);
 
-    if (argc == 2) {
-        char *dir = argv[1];
-
-        setOutputDir(std::string(dir));
+    std::string statFile;
+    if (argc == 4) {
+        filePath = std::string(argv[1]);
+        setOutputDir(std::string(argv[2]));
+        statFile = std::string(argv[3]);
     }
 
     try {
@@ -327,8 +328,8 @@ int main(int argc, char *argv[]) {
 
         std::cout << "Written terms and docs in time " << timer << '\n';
 
-        std::ofstream stats(outputDir + "invertedindex_stat.txt", std::ios_base::out);
-        stats << -1 << '\n';
+        std::ofstream stats(statFile, std::ios_base::out);
+        stats << totalTokenCount << '\n';
         stats << termIDmapping.size() << '\n';
         stats.close();
 

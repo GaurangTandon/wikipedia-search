@@ -19,7 +19,7 @@ void writeDocMapping(const std::map<int, std::string> &docs) {
     std::ofstream output(outputDir + "docs", filemode);
     output << docs.size() << '\n';
     for (const auto &doc : docs) {
-        output << doc.first << " " << doc.second << '\n';
+        output << doc.second << '\n';
     }
     output.close();
 }

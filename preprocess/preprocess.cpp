@@ -157,7 +157,7 @@ std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text,
     return stemmedTokens;
 }
 
-void
+int
 Preprocessor::processText(data_type *alldata, const int docid, const int zone, const std::string &text, int start,
                           int end) {
     auto stemmedTokens = getStemmedTokens(text, start, end);
@@ -173,6 +173,8 @@ Preprocessor::processText(data_type *alldata, const int docid, const int zone, c
     for (auto &ldata : local) {
         alldata_act[ldata.first].push_back({docid, ldata.second});
     }
+
+    return stemmedTokens.size();
 }
 
 // reduced time from 2.2s to 0.8s (compared to src.substr(pos, target.size()) == target)
