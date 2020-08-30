@@ -8,7 +8,7 @@
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/zip_operations.cpp"
 
-constexpr int BLOCK_SIZE = 5;
+constexpr int BLOCK_SIZE = 1;
 #define ceil(x, y) (x + y - 1) / y
 
 Preprocessor *processor;
@@ -82,12 +82,13 @@ void *searchFileThreaded(void *arg) {
         auto tokenIT = token_begin;
         auto currTokenId = *tokenIT;
 
-        int count = buffer.readInt();
+        int count = buffer.readInt('\n');
+
         for (int i = 0; i < count; i++) {
             int id = buffer.readInt();
 
             if (id != currTokenId) {
-                buffer.ignoreTillDelim();
+                if (i < count - 1) buffer.ignoreTillDelim();
                 continue;
             }
 
@@ -107,16 +108,19 @@ void *searchFileThreaded(void *arg) {
                 if (freq[query->zone]) docids.insert(docid);
             }
 
-            buffer.ignoreTillDelim();
+            assert(buffer.readChar() == '\n');
 
             tokenIT++;
             if (tokenIT == token_end) break;
             currTokenId = *tokenIT;
         }
+
+        buffer.close();
     }
 
     auto &vec = (*(query->sharedMem))[query->block];
     vec.insert(vec.end(), docids.begin(), docids.end());
+
 
     return nullptr;
 }

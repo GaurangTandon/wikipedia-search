@@ -3,16 +3,17 @@ project(wikipedia_search)
 
 set(CMAKE_CXX_STANDARD 14)
 
-set(GCC_COVERAGE_COMPILE_FLAGS "-O0 -g -pthread")
+set(GCC_COVERAGE_COMPILE_FLAGS "-O3 -g -pthread")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
 
-include_directories(parser)
-include_directories(libstemmer_c)
+include_directories(src/parser)
+include_directories(src/libstemmer_c)
+include_directories(src/bzip2)
 
 SET(OBJS
     src/libstemmer_c/libstemmer.o
-    /usr/local/lib/libstudxml.a
-        src/bzip2/libbz2.a)
+    src/bzip2/libbz2.a
+    /usr/local/lib/libstudxml.a )
 
 SET_SOURCE_FILES_PROPERTIES(
         ${OBJS}

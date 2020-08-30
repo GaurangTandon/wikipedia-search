@@ -6,6 +6,7 @@ constexpr int OUTPUT_BUF_MX_SIZE = 100000;
 struct WriteBuffer {
     BZFILE *bzFile;
     FILE *file;
+    int bzError;
     char *buffer;
     char *bufferOrg;
     int written;
@@ -21,7 +22,6 @@ struct WriteBuffer {
             exit(1);
         }
 
-        int bzError;
         bzFile = BZ2_bzWriteOpen(&bzError, file, 9, 0, 0);
 
         if (bzError != BZ_OK) {
@@ -30,14 +30,13 @@ struct WriteBuffer {
         }
     }
 
-    int charsLeft() {
+    inline int charsLeft() {
         return OUTPUT_BUF_MX_SIZE - written;
     }
 
     void flush() {
         if (written == 0) return;
 
-        int bzError;
         BZ2_bzWrite(&bzError, bzFile, bufferOrg, written);
 
         if (bzError != BZ_OK) {
@@ -52,7 +51,6 @@ struct WriteBuffer {
     void close() {
         flush();
 
-        int bzError;
         unsigned int nbytes_in, nbytes_out;
         BZ2_bzWriteClose(&bzError, bzFile, 0, &nbytes_in, &nbytes_out);
         if (bzError != BZ_OK) {
@@ -65,10 +63,11 @@ struct WriteBuffer {
 
     void write(int num, char end) {
         int rem = charsLeft();
+
         // cnt = number of characters that would have been written (excluding the null character)
         int cnt = snprintf(buffer, rem, "%d%c", num, end);
 
-        if (rem < cnt) {
+        if (rem <= cnt) {
             flush();
             write(num, end);
             return;
@@ -79,18 +78,22 @@ struct WriteBuffer {
 
     void write(char ch) {
         int rem = charsLeft();
-        if (rem == 0) {
+        if (rem <= 1) {
             flush();
+            write(ch);
+            return;
         }
         int cnt = snprintf(buffer, rem, "%c", ch);
         postwrite(cnt);
     }
 
-    void write(const std::string &s) {
-        if (charsLeft() < s.size()) flush();
-        int cnt = snprintf(buffer, charsLeft(), "%s", s.c_str());
-        postwrite(cnt);
-    }
+//    void write(const std::string &s) {
+//        int rem = charsLeft();
+//        if (rem <= s.size()) { flush(); write(s); return; }
+//
+//        int cnt = snprintf(buffer, rem, "%s", s.c_str());
+//        postwrite(cnt);
+//    }
 
     void postwrite(int outputChars) {
         written += outputChars;
@@ -123,10 +126,12 @@ struct ReadBuffer {
 
     char readChar() {
         BZ2_bzRead(&bzError, bzFile, buf, 1);
+
         if (bzError != BZ_OK) {
             fprintf(stderr, "E: BZ2_bzRead: %d\n", bzError);
             exit(1);
         }
+
         return *buf;
     }
 
@@ -136,7 +141,7 @@ struct ReadBuffer {
         do {
             const char c = readChar();
             if (c == delim) break;
-            assert('0' <= c and c <= '9');
+            assert ('0' <= c and c <= '9');
             num = num * 10 + (c - '0');
         } while (true);
 
@@ -154,10 +159,19 @@ struct ReadBuffer {
             num = num * 10 + (c - '0');
         } while (true);
 
-        return { num, c };
+        return {num, c};
     }
 
     void ignoreTillDelim(char delim = '\n') {
         while (readChar() != delim);
+    }
+
+    void close() {
+        BZ2_bzReadClose(&bzError, bzFile);
+        if (bzError != BZ_OK) {
+            fprintf(stderr, "E: BZ2_bzReadClose: %d\n", bzError);
+            exit(1);
+        }
+        fclose(file);
     }
 };
