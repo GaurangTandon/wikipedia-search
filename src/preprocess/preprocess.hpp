@@ -46,9 +46,7 @@ struct Preprocessor {
 
     static bool fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos = 0);
 
-    int processText(local_data_type &localData, const int zone, const std::string &text, int start, int end);
-
-    void dumpText(data_type *alldata, const int docid, const local_data_type &localData);
+    int processText(data_type &all_data, int docid, int zone, const std::string &text, int start, int end);
 
     std::vector<std::string> getStemmedTokens(const std::string &text, int start, int end);
 

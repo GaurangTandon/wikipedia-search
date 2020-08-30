@@ -172,6 +172,10 @@ struct ReadBuffer {
             fprintf(stderr, "E: BZ2_bzReadClose: %d\n", bzError);
             exit(1);
         }
-        fclose(file);
+        int res = fclose(file);
+        if (res != 0) {
+            fprintf(stderr, "E: fclose readbuffer: %d\n", bzError);
+            exit(1);
+        }
     }
 };

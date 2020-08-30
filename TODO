@@ -1,4 +1,3 @@
 - make a cache of stemmer; pystemmer does that: https://github.com/snowballstem/pystemmer/blob/master/docs/quickstart.txt
 - create the merged index file
-- look into on-the-fly zipped file i/o
-- `bash ./search.sh output 'e:doctorwho'` does not still give result of TARDIS
+- move away from maps and towards vectors; as you can see on godbolt maps have a much much higher overhead (https://godbolt.org/z/zax57G)

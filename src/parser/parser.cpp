@@ -86,8 +86,9 @@ const std::vector<std::string> TEXT_REFERENCES = {"== references ==", "==referen
                                                   "==references =="};
 Preprocessor *processor;
 
-inline void processText(local_data_type &localData, int zone, const std::string &text, int start, int end) {
-    totalTokenCount += processor->processText(localData, zone, text, start, end);
+inline void
+processText(data_type &all_data, const int docid, const int zone, const std::string &text, int start, int end) {
+    totalTokenCount += processor->processText(all_data, docid, zone, text, start, end);
 }
 
 int extractInfobox(const std::string &text, const int start) {
@@ -156,8 +157,9 @@ int extractReferences(const std::string &text, int start) {
 
 void extractData(memory_type *mem, WikiPage *page) {
     auto &text = page->text;
+    auto docid = page->docid;
+    auto &all_data = *mem->alldata;
     std::string bodyText;
-    local_data_type localData;
 
     for (auto &c : text) c = Preprocessor::lowercase(c);
 
@@ -187,17 +189,15 @@ void extractData(memory_type *mem, WikiPage *page) {
         }
 
         if (zone != -1) {
-            processText(localData, zone, text, start, end);
+            processText(all_data, docid, zone, text, start, end);
             i = end;
         }
     }
 
-    processText(localData, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
+    processText(all_data, docid, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
     auto title_copy = page->title;
     for (auto &c : title_copy) c = Preprocessor::lowercase(c);
-    processText(localData, TITLE_ZONE, title_copy, 0, title_copy.size() - 1);
-
-    processor->dumpText(mem->alldata, page->docid, localData);
+    processText(all_data, docid, TITLE_ZONE, title_copy, 0, title_copy.size() - 1);
 }
 
 class WikiSiteInfo {
@@ -245,13 +245,13 @@ void *thread_checkpoint(void *arg) {
     for (int i = 0; i < mem->size; i++) {
         auto &page = mem->store[i];
         page->docid = get_docid();
+        docDetails[page->docid] = page->title;
     }
     pthread_mutex_unlock(&doc_id_mutex);
 
     int sum = 0;
     for (int i = 0; i < mem->size; i++) {
         auto &page = mem->store[i];
-        docDetails[page->docid] = page->title;
         sum += page->text.size();
         extractData(mem, page);
     }
@@ -283,8 +283,8 @@ void checkpoint() {
     allocate_mem();
 }
 
-
 class WikiObject {
+
 public:
     explicit WikiObject(xml::parser &p) {
         p.next_expect(xml::parser::start_element, NS, "mediawiki", xml::content::complex);

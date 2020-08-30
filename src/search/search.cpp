@@ -229,6 +229,7 @@ int main(int argc, char *argv[]) {
             std::cout << title << "; ";
         }
         std::cout << std::endl;
+        std::cout << "Total results: " << result.size() << std::endl;
         std::cout << "------";
         std::cout << std::endl;
         zoneI++;

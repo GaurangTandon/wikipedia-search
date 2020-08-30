@@ -158,28 +158,21 @@ std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text,
 }
 
 int
-Preprocessor::processText(local_data_type &localData, const int zone, const std::string &text, int start, int end) {
+Preprocessor::processText(data_type &alldata, const int docid, const int zone, const std::string &text, int start,
+                          int end) {
     auto stemmedTokens = getStemmedTokens(text, start, end);
 
     for (auto &term : stemmedTokens) {
-        auto &freq = localData[term];
-        if (freq.empty()) freq = std::vector<int>(ZONE_COUNT);
-        freq[zone]++;
+        auto &post_list = alldata[term];
+        if (post_list.empty() or post_list.back().first != docid) {
+            post_list.push_back({docid, std::vector<int>(ZONE_COUNT)});
+        }
+        post_list.back().second[zone]++;
     }
 
     return stemmedTokens.size();
 }
 
-void Preprocessor::dumpText(data_type *alldata, const int docid, const local_data_type &localData) {
-    auto &alldata_act = *alldata;
-    for (const auto &ldata : localData) {
-        alldata_act[ldata.first].push_back({docid, ldata.second});
-    }
-}
-
-
-// reduced time from 2.2s to 0.8s (compared to src.substr(pos, target.size()) == target)
-// required: both src and target should be in lowercase, no lowercasing is done here
 bool Preprocessor::fast_equals(const std::string &src, const std::string &target, int pos) {
     int j = 0, i = pos;
 
@@ -194,6 +187,7 @@ bool Preprocessor::fast_equals(const std::string &src, const std::string &target
     return false;
 }
 
+// TODO: improve this using KMP
 bool Preprocessor::fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos) {
     for (const auto &target: targets) {
         if (fast_equals(src, target, pos)) {
