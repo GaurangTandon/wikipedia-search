@@ -21,9 +21,10 @@ std::vector<std::string> extractZonalQueries(char *query) {
     std::vector<int> zones(255, -1);
     zones['t'] = TITLE_ZONE;
     zones['i'] = INFOBOX_ZONE;
+    zones['b'] = TEXT_ZONE;
     zones['c'] = CATEGORY_ZONE;
     zones['r'] = REFERENCES_ZONE;
-    zones['e'] = EXTERNAL_LINKS_ZONE;
+    zones['l'] = EXTERNAL_LINKS_ZONE;
 
     constexpr char QUERY_SEP = ':';
 
