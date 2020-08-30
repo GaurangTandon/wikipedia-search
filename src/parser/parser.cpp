@@ -33,6 +33,7 @@ void allocate_mem() {
     memory = (memory_type *) malloc(sizeof(memory_type));
     memory->store = (WikiPage **) malloc(sizeof(WikiPage *) * MX_MEM);
     memory->size = 0;
+    memory->checkpoint_num = currCheck;
     memory->alldata = new data_type();
 }
 
@@ -225,7 +226,7 @@ void writeToFile(memory_type *mem) {
 
     start_time
 
-    writeIndex(mem->alldata);
+    writeIndex(mem->alldata, mem->checkpoint_num);
 
     end_time
     std::cout << "Written in time " << timer << '\n';

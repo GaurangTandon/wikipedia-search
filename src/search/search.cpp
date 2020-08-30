@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <ctime>
 #include "../preprocess/preprocess.cpp"
+#include "../file_handling/zip_operations.cpp"
 
 constexpr int BLOCK_SIZE = 5;
 #define ceil(x, y) (x + y - 1) / y
@@ -15,7 +16,6 @@ std::string outputDir;
 std::map<std::string, int> termIDMap;
 std::map<int, std::string> docIdMap;
 int fileCount;
-
 
 std::vector<std::string> extractZonalQueries(char *query) {
     std::vector<int> zones(255, -1);
@@ -74,44 +74,40 @@ void *searchFileThreaded(void *arg) {
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-    for (int currFile = query->block * BLOCK_SIZE, lim = min(fileCount, currFile + BLOCK_SIZE); currFile < lim; currFile++) {
+    for (int currFile = query->block * BLOCK_SIZE, lim = min(fileCount, currFile + BLOCK_SIZE);
+         currFile < lim; currFile++) {
         std::string filepath = outputDir + "index" + std::to_string(currFile);
-        std::ifstream file(filepath, std::ios_base::in);
+        auto buffer = ReadBuffer(filepath);
 
         auto tokenIT = token_begin;
         auto currTokenId = *tokenIT;
 
-        int count;
-        file >> count;
+        int count = buffer.readInt();
         for (int i = 0; i < count; i++) {
-            int id;
-            file >> id;
+            int id = buffer.readInt();
 
             if (id != currTokenId) {
-                file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                buffer.ignoreTillDelim();
                 continue;
             }
 
-            int docCount;
-            file >> docCount;
+            int docCount = buffer.readInt();
             for (int j = 0; j < docCount; j++) {
-                int docid;
-                file >> docid;
+                int docid = buffer.readInt();
 
                 std::vector<int> freq(ZONE_COUNT, 0);
                 int k = 0;
 
                 while (true) {
-                    file >> freq[k++];
-                    char c;
-                    file >> c;
-                    if (c == ';') break;
+                    auto res = buffer.readInt(';', ',');
+                    freq[k++] = res.first;
+                    if (res.second == ';') break;
                 }
 
                 if (freq[query->zone]) docids.insert(docid);
             }
 
-            file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            buffer.ignoreTillDelim();
 
             tokenIT++;
             if (tokenIT == token_end) break;

@@ -3,6 +3,8 @@
 #include<string>
 #include "filehandler.cpp"
 
+const auto filemode = std::ios_base::out;
+
 void writeTermMapping(std::map<std::string, int> &terms) {
     terms.erase("");
 

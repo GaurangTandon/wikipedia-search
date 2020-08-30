@@ -1,5 +1,5 @@
 include mkinc.mak
-CFLAGS=-O3 -g
+CFLAGS=-O3
 CPPFLAGS=-Iinclude
 
 all: libstemmer.o stemwords
