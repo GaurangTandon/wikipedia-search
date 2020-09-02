@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
 
     std::ifstream fileStats(outputDir + "file_stat.txt", std::ios_base::in);
     fileStats >> fileCount;
-    assert(fileCount > 0 and fileCount < 30);
+    assert(fileCount > 0 and fileCount < 100);
 
     readTermIds();
     readDocIds();

@@ -13,8 +13,6 @@
  * next_expect(): if `content` argument is set, then event type must be start element
  */
 
-#define DEBUG std::cout << p.next() << " " << p.value() << " " << p.name() << " " << p.qname() << '\n';
-
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
 std::string filePath;
 int totalTokenCount = 0;
@@ -22,11 +20,11 @@ int totalTokenCount = 0;
 struct timespec *st = new timespec(), *et = new timespec();
 int currCheck = 0;
 
-constexpr int MX_THREADS = 100;
+constexpr int MX_THREADS = 200;
 pthread_t threads[MX_THREADS];
 int threadCount = 0;
 
-constexpr int MX_MEM = 4000;
+constexpr int MX_MEM = 500;
 memory_type *memory;
 
 void allocate_mem() {
@@ -78,20 +76,10 @@ WikiPage::WikiPage(xml::parser &p) {
 }
 
 // KEEP lowercase
-// setting up for KMP, these are in the order of reverseZonal
-const std::vector<std::vector<std::string>> TEXT_DATA = {
-        {},
-        {"{{infobox",            "{{ infobox"},
-        {"[[category",           "[[ category"},
-        {},
-        {"== external links ==", "==external links==", "== external links==", "==external links =="},
-        {"== references ==",     "==references==",     "== references==",     "==references =="}
-};
-std::vector<std::vector<int>> textPrefixValues = {};
-
-const std::vector<std::string> TEXT_CATEGORY =;
-const std::vector<std::string> TEXT_EXTERNAL_LINKS =;
-const std::vector<std::string> TEXT_REFERENCES =;
+const std::string TEXT_INFOBOX = "infobox";
+const std::string TEXT_CATEGORY = "category";
+const std::string TEXT_EXTERNAL_LINKS = "external links";
+const std::string TEXT_REFERENCES = "references";
 Preprocessor *processor;
 
 inline void
@@ -100,7 +88,7 @@ processText(data_type &all_data, const int docid, const int zone, const std::str
 }
 
 int extractInfobox(const std::string &text, const int start) {
-    int cnt = 0;
+    int cnt = 1; // we are skipping the initial {{ pair
     int end = start;
 
     while (end < text.size() - 1) {
@@ -118,12 +106,24 @@ int extractInfobox(const std::string &text, const int start) {
 
     // TODO: remove this check later
     if (cnt != 0) {
-//        std::cout << page->title << std::endl;
         std::cout << cnt << std::endl;
-        exit(1);
+        exit(123);
     }
 
     return end;
+}
+
+int hasSection(const std::string &text, int curr) {
+    if (curr < text.size() - 3 and text[curr] == '\n' and text[curr + 1] == '=' and text[curr + 2] == '=')
+        return true;
+    return false;
+}
+
+int hasCategory(const std::string &text, int curr) {
+    if (curr < text.size() - 10 and text[curr] == '\n' and text[curr + 1] == '[' and text[curr + 2] == '[' and
+        Preprocessor::fast_equals(text, TEXT_CATEGORY, curr + 3))
+        return true;
+    return false;
 }
 
 int extractCategory(const std::string &text, const int start) {
@@ -144,7 +144,7 @@ int extractExternalLinks(const std::string &text, const int start) {
     int end = start;
 
     // assume external links are followed by categorical information
-    while (end < text.size() - 1 and not Preprocessor::fast_equals(text, TEXT_CATEGORY, end + 1)) {
+    while (end < text.size() - 1 and not hasCategory(text, end + 1)) {
         end++;
     }
 
@@ -155,8 +155,7 @@ int extractReferences(const std::string &text, int start) {
     int end = start;
 
     // assume external links are followed by categorical information
-    while (end < text.size() - 1 and not Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, end + 1) and
-           not Preprocessor::fast_equals(text, TEXT_CATEGORY, end + 1)) {
+    while (end < text.size() - 1 and not hasSection(text, end + 1)) {
         end++;
     }
 
@@ -168,29 +167,45 @@ void extractData(memory_type *mem, WikiPage *page) {
     auto docid = page->docid;
     auto &all_data = *mem->alldata;
     std::string bodyText;
+    bool infoSeen = false;
 
     for (auto &c : text) c = Preprocessor::lowercase(c);
 
-    start += TEXT_REFERENCES.front().size();
-    zone = REFERENCES_ZONE;
-    end = extractReferences(text, i);
-
     for (int i = 0; i < text.size(); i++) {
         int end = -1;
-        int start = i;
+        int start;
         int zone = -1;
 
         if (text[i] == '=' and text[i + 1] == '=') {
-            if () {
-                start += TEXT_EXTERNAL_LINKS.front().size();
+            int s = i + 2;
+            if (text[s] == ' ') s++;
+
+            if (Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, s)) {
+                start = s + TEXT_EXTERNAL_LINKS.size() + 2;
                 zone = EXTERNAL_LINKS_ZONE;
-                end = extractExternalLinks(text, i);
-            } else if (Preprocessor::fast_equals(text, TEXT_REFERENCES, i)) {
+                end = extractExternalLinks(text, start);
+            } else if (Preprocessor::fast_equals(text, TEXT_REFERENCES, s)) {
+                start = s + TEXT_REFERENCES.size() + 2;
+                zone = REFERENCES_ZONE;
+                end = extractReferences(text, start);
             }
-        } else if (text[i] == '{' and text[i + 1] == '{') {
-
+        } else if (not infoSeen and text[i] == '{' and text[i + 1] == '{') {
+            int s = i + 2;
+            if (text[s] == ' ') s++;
+            if (Preprocessor::fast_equals(text, TEXT_INFOBOX, s)) {
+                start = s + TEXT_INFOBOX.size();
+                zone = INFOBOX_ZONE;
+                infoSeen = true;
+                end = extractInfobox(text, start);
+            }
         } else if (text[i] == '[' and text[i + 1] == '[') {
-
+            int s = i + 2;
+            if (text[s] == ' ') s++;
+            if (Preprocessor::fast_equals(text, TEXT_CATEGORY, s)) {
+                start = s + TEXT_CATEGORY.size();
+                zone = CATEGORY_ZONE;
+                end = extractCategory(text, start);
+            }
         } else {
             bodyText += text[i];
         }
@@ -327,10 +342,6 @@ int main(int argc, char *argv[]) {
         filePath = std::string(argv[1]);
         setOutputDir(std::string(argv[2]));
         statFile = std::string(argv[3]);
-    }
-
-    for (auto &cats : TEXT_DATA) {
-        textPrefixValues.emplace_back(cats.size(), 0);
     }
 
     try {

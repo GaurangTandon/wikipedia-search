@@ -171,8 +171,6 @@ Preprocessor::processText(data_type &alldata, const int docid, const int zone, c
 bool Preprocessor::fast_equals(const std::string &src, const std::string &target, int pos) {
     int j = 0, i = pos;
 
-    assert(not target.empty());
-
     while (i < src.size()) {
         if (src[i] != target[j]) return false;
         j++, i++;
@@ -180,14 +178,4 @@ bool Preprocessor::fast_equals(const std::string &src, const std::string &target
     }
 
     return false;
-}
-
-// returns true if matched, returns false otherwise
-// updates the lps values accordingly
-bool Preprocessor::advance_equals(const std::string &matcher, const char &curr, int &lps) {
-    if (lps > 0 and (lps >= matcher.size() or curr != matcher[lps])) {
-        lps = 0;
-    }
-    if (curr == matcher[lps]) lps++;
-    return lps == matcher.size();
 }

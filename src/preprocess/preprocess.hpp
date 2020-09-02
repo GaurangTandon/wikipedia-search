@@ -46,9 +46,9 @@ struct Preprocessor {
 
     int processText(data_type &all_data, int docid, int zone, const std::string &text, int start, int end);
 
+    static bool fast_equals(const std::string &src, const std::string &target, int pos);
+
     std::vector<std::string> getStemmedTokens(const std::string &text, int start, int end);
 
     inline std::string stemming(const sb_symbol *word, int len) const;
-
-    bool advance_equals(const std::string &matcher, const char &curr, int &lps);
 };
