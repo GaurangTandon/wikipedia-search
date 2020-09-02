@@ -7,7 +7,7 @@
 // Full stats: http://norvig.com/mayzner.html
 constexpr int MAX_WORD_LEN = 25;
 
-constexpr int FastTrie::char_index(char c) {
+constexpr inline int FastTrie::char_index(char c) {
     return c - 'a';
 }
 
@@ -65,6 +65,7 @@ Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
 
     trie = FastTrie();
     commonWord = (sb_symbol *) malloc(MAX_WORD_LEN * sizeof(sb_symbol));
+//    freq = std::map<std::string, int>();
 
     std::ifstream stopwords_file("preprocess/stopwords_plain.txt", std::ios_base::in);
 
@@ -72,6 +73,9 @@ Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
     stopwords_file >> count;
 
     assert(count < 200);
+    // OPTIMIZATION: read character by character and inline the trie.insert thing
+    //  instead of using stream/based file i/o
+    // but as it is done only threadCount times, it is probably useless to optimize this
     while (count--) {
         std::string word;
         stopwords_file >> word;
@@ -106,23 +110,19 @@ inline std::string Preprocessor::stemming(const sb_symbol *word, const int len) 
     const sb_symbol *res = sb_stemmer_stem(stemmer, word, len);
     int new_len = sb_stemmer_length(stemmer);
 
-    std::string ret;
-    ret.reserve(new_len);
-    for (int i = 0; i < new_len; i++) {
-        ret += res[i];
-    }
+    std::string ret(reinterpret_cast<const char *>(res), new_len);
 
     return ret;
 }
 
-std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text, int start, int end) {
+inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text, int start, int end) {
     // tokenize
     // stopwords removal
     // stemmer
 
-    std::vector<std::pair<sb_symbol *, int>> tokens;
     std::vector<std::string> stemmedTokens;
 
+    pthread_mutex_lock(&stemmer_mutex);
     for (int left = start; left <= end; left++) {
         if (not validChar(text[left])) continue;
 
@@ -136,21 +136,16 @@ std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text,
         int word_len = right - left + 1;
 
         if (word_len <= MAX_WORD_LEN and not trie.is_end_string(curr)) {
+//            freq[text.substr(left, word_len)]++;
             for (int i = 0; i < word_len; i++) {
                 commonWord[i] = text[i + left];
             }
 
-            tokens.emplace_back(commonWord, word_len);
+            const auto &str = stemming(commonWord, word_len);
+            stemmedTokens.emplace_back(str);
         }
 
         left = right + 1;
-    }
-
-    stemmedTokens.reserve(tokens.size());
-    pthread_mutex_lock(&stemmer_mutex);
-    for (const auto &data : tokens) {
-        const auto &str = stemming(data.first, data.second);
-        stemmedTokens.push_back(str);
     }
     pthread_mutex_unlock(&stemmer_mutex);
 
@@ -187,13 +182,12 @@ bool Preprocessor::fast_equals(const std::string &src, const std::string &target
     return false;
 }
 
-// TODO: improve this using KMP
-bool Preprocessor::fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos) {
-    for (const auto &target: targets) {
-        if (fast_equals(src, target, pos)) {
-            return true;
-        }
+// returns true if matched, returns false otherwise
+// updates the lps values accordingly
+bool Preprocessor::advance_equals(const std::string &matcher, const char &curr, int &lps) {
+    if (lps > 0 and (lps >= matcher.size() or curr != matcher[lps])) {
+        lps = 0;
     }
-
-    return false;
+    if (curr == matcher[lps]) lps++;
+    return lps == matcher.size();
 }

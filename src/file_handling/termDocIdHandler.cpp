@@ -20,12 +20,8 @@ void writeTermMapping(std::map<std::string, int> &terms) {
 void writeDocMapping(const std::map<int, std::string> &docs) {
     std::ofstream output(outputDir + "docs", filemode);
     output << docs.size() << '\n';
-    int i = 0;
     for (const auto &doc : docs) {
-        // TODO: remove this later
-        assert(doc.first == ++i);
         output << doc.second << '\n';
     }
-    assert(i == docs.size());
     output.close();
 }

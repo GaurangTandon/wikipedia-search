@@ -34,6 +34,7 @@ struct Preprocessor {
     pthread_mutex_t stemmer_mutex;
     FastTrie trie;
     sb_symbol *commonWord;
+    std::map<std::string, int> freq;
 
     Preprocessor();
 
@@ -43,13 +44,11 @@ struct Preprocessor {
 
     static inline constexpr bool validChar(char c);
 
-    static bool fast_equals(const std::string &src, const std::string &target, int pos = 0);
-
-    static bool fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos = 0);
-
     int processText(data_type &all_data, int docid, int zone, const std::string &text, int start, int end);
 
     std::vector<std::string> getStemmedTokens(const std::string &text, int start, int end);
 
     inline std::string stemming(const sb_symbol *word, int len) const;
+
+    bool advance_equals(const std::string &matcher, const char &curr, int &lps);
 };

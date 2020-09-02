@@ -1,7 +1,8 @@
 #include "../bzip2/bzlib.h"
 #include <stdio.h>
 
-constexpr int OUTPUT_BUF_MX_SIZE = 100000;
+// number of characters in index file is around 1M using 1000 records
+constexpr int OUTPUT_BUF_MX_SIZE = 200000;
 
 struct WriteBuffer {
     BZFILE *bzFile;

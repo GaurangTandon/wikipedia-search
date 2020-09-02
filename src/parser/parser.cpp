@@ -26,7 +26,7 @@ constexpr int MX_THREADS = 100;
 pthread_t threads[MX_THREADS];
 int threadCount = 0;
 
-constexpr int MX_MEM = 1500;
+constexpr int MX_MEM = 4000;
 memory_type *memory;
 
 void allocate_mem() {
@@ -78,12 +78,20 @@ WikiPage::WikiPage(xml::parser &p) {
 }
 
 // KEEP lowercase
-const std::vector<std::string> TEXT_INFOBOX = {"{{infobox", "{{ infobox"};
-const std::vector<std::string> TEXT_CATEGORY = {"[[category", "[[ category"};
-const std::vector<std::string> TEXT_EXTERNAL_LINKS = {"== external links ==", "==external links==",
-                                                      "== external links==", "==external links =="};
-const std::vector<std::string> TEXT_REFERENCES = {"== references ==", "==references==", "== references==",
-                                                  "==references =="};
+// setting up for KMP, these are in the order of reverseZonal
+const std::vector<std::vector<std::string>> TEXT_DATA = {
+        {},
+        {"{{infobox",            "{{ infobox"},
+        {"[[category",           "[[ category"},
+        {},
+        {"== external links ==", "==external links==", "== external links==", "==external links =="},
+        {"== references ==",     "==references==",     "== references==",     "==references =="}
+};
+std::vector<std::vector<int>> textPrefixValues = {};
+
+const std::vector<std::string> TEXT_CATEGORY =;
+const std::vector<std::string> TEXT_EXTERNAL_LINKS =;
+const std::vector<std::string> TEXT_REFERENCES =;
 Preprocessor *processor;
 
 inline void
@@ -163,27 +171,26 @@ void extractData(memory_type *mem, WikiPage *page) {
 
     for (auto &c : text) c = Preprocessor::lowercase(c);
 
+    start += TEXT_REFERENCES.front().size();
+    zone = REFERENCES_ZONE;
+    end = extractReferences(text, i);
+
     for (int i = 0; i < text.size(); i++) {
         int end = -1;
         int start = i;
         int zone = -1;
 
-        if (Preprocessor::fast_equals(text, TEXT_INFOBOX, i)) {
-            start += TEXT_INFOBOX.size();
-            zone = INFOBOX_ZONE;
-            end = extractInfobox(text, i);
-        } else if (Preprocessor::fast_equals(text, TEXT_CATEGORY, i)) {
-            start += TEXT_CATEGORY.size();
-            zone = CATEGORY_ZONE;
-            end = extractCategory(text, i);
-        } else if (Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, i)) {
-            start += TEXT_EXTERNAL_LINKS.size();
-            zone = EXTERNAL_LINKS_ZONE;
-            end = extractExternalLinks(text, i);
-        } else if (Preprocessor::fast_equals(text, TEXT_REFERENCES, i)) {
-            start += TEXT_REFERENCES.size();
-            zone = REFERENCES_ZONE;
-            end = extractReferences(text, i);
+        if (text[i] == '=' and text[i + 1] == '=') {
+            if () {
+                start += TEXT_EXTERNAL_LINKS.front().size();
+                zone = EXTERNAL_LINKS_ZONE;
+                end = extractExternalLinks(text, i);
+            } else if (Preprocessor::fast_equals(text, TEXT_REFERENCES, i)) {
+            }
+        } else if (text[i] == '{' and text[i + 1] == '{') {
+
+        } else if (text[i] == '[' and text[i + 1] == '[') {
+
         } else {
             bodyText += text[i];
         }
@@ -320,6 +327,10 @@ int main(int argc, char *argv[]) {
         filePath = std::string(argv[1]);
         setOutputDir(std::string(argv[2]));
         statFile = std::string(argv[3]);
+    }
+
+    for (auto &cats : TEXT_DATA) {
+        textPrefixValues.emplace_back(cats.size(), 0);
     }
 
     try {

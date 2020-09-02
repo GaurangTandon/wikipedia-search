@@ -9,13 +9,10 @@ int docCount = 1;
 pthread_mutex_t term_id_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t doc_id_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-inline int get_termid(const std::string &term) {
-    return termIDmapping[term];
-}
-
 // MUST HOLD LOCK WHEN CALLING
-inline void add_term(const std::string &term) {
+inline int add_term(const std::string &term) {
     if (not termIDmapping[term]) termIDmapping[term] = termsCount++;
+    return termIDmapping[term];
 }
 
 // MUST HOLD LOCK WHEN CALLING

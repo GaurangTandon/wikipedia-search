@@ -17,17 +17,20 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
 
     const char INTRA_SEP = ',';
     const char INTER_SEP = ';';
+    std::vector<int> termIDs;
+    termIDs.reserve(allData.size());
 
     pthread_mutex_lock(&term_id_mutex);
     for (const auto &term_data : allData) {
-        add_term(term_data.first);
+        termIDs.push_back(add_term(term_data.first));
     }
     pthread_mutex_unlock(&term_id_mutex);
 
     outputBuffer.write(allData.size(), '\n');
 
+    int termIdx = 0;
     for (const auto &term_data : allData) {
-        const auto &termid = get_termid(term_data.first);
+        const auto &termid = termIDs[termIdx];
         const auto &postings = term_data.second;
 
         outputBuffer.write(termid, ' ');
