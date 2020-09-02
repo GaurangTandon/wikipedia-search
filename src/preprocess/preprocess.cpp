@@ -64,6 +64,7 @@ Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
     assert(stemmer != nullptr);
 
     trie = FastTrie();
+    commonWord = (sb_symbol *) malloc(MAX_WORD_LEN * sizeof(sb_symbol));
 
     std::ifstream stopwords_file("preprocess/stopwords_plain.txt", std::ios_base::in);
 
@@ -82,6 +83,7 @@ Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
 
 Preprocessor::~Preprocessor() {
     sb_stemmer_delete(stemmer);
+    free(commonWord);
 }
 
 inline constexpr bool Preprocessor::validChar(char c) {
@@ -134,12 +136,11 @@ std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text,
         int word_len = right - left + 1;
 
         if (word_len <= MAX_WORD_LEN and not trie.is_end_string(curr)) {
-            auto *word = (sb_symbol *) malloc(word_len * sizeof(sb_symbol));
             for (int i = 0; i < word_len; i++) {
-                word[i] = text[i + left];
+                commonWord[i] = text[i + left];
             }
 
-            tokens.emplace_back(word, word_len);
+            tokens.emplace_back(commonWord, word_len);
         }
 
         left = right + 1;
@@ -150,7 +151,6 @@ std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text,
     for (const auto &data : tokens) {
         const auto &str = stemming(data.first, data.second);
         stemmedTokens.push_back(str);
-        free(data.first);
     }
     pthread_mutex_unlock(&stemmer_mutex);
 

@@ -33,6 +33,7 @@ struct Preprocessor {
     sb_stemmer *stemmer;
     pthread_mutex_t stemmer_mutex;
     FastTrie trie;
+    sb_symbol *commonWord;
 
     Preprocessor();
 
