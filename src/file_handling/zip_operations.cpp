@@ -125,6 +125,10 @@ struct ReadBuffer {
         buf = (char *) malloc(sizeof(char));
     }
 
+    ~ReadBuffer() {
+        free(buf);
+    }
+
     char readChar() {
         BZ2_bzRead(&bzError, bzFile, buf, 1);
 

@@ -51,6 +51,7 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
         }
 
         outputBuffer.write('\n');
+        termIdx++;
     }
 
     outputBuffer.close();

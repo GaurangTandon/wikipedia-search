@@ -8,7 +8,7 @@
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/zip_operations.cpp"
 
-constexpr int BLOCK_SIZE = 1;
+constexpr int BLOCK_SIZE = 5;
 #define ceil(x, y) (x + y - 1) / y
 
 Preprocessor *processor;
@@ -239,6 +239,7 @@ int main(int argc, char *argv[]) {
     end_time
 
     std::cout << "Search finished in time " << timer << std::endl;
+    delete st; delete et;
 
     return 0;
 }

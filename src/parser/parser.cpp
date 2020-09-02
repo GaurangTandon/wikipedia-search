@@ -76,10 +76,12 @@ WikiPage::WikiPage(xml::parser &p) {
 }
 
 // KEEP lowercase
-const std::string TEXT_INFOBOX = "infobox";
-const std::string TEXT_CATEGORY = "category";
-const std::string TEXT_EXTERNAL_LINKS = "external links";
-const std::string TEXT_REFERENCES = "references";
+const std::vector<std::string> TEXT_INFOBOX = {"{{infobox", "{{ infobox"};
+const std::vector<std::string> TEXT_CATEGORY = {"[[category", "[[ category"};
+const std::vector<std::string> TEXT_EXTERNAL_LINKS = {"== external links ==", "==external links==",
+                                                      "== external links==", "==external links =="};
+const std::vector<std::string> TEXT_REFERENCES = {"== references ==", "==references==", "== references==",
+                                                  "==references =="};
 Preprocessor *processor;
 
 inline void
@@ -88,7 +90,7 @@ processText(data_type &all_data, const int docid, const int zone, const std::str
 }
 
 int extractInfobox(const std::string &text, const int start) {
-    int cnt = 1; // we are skipping the initial {{ pair
+    int cnt = 0;
     int end = start;
 
     while (end < text.size() - 1) {
@@ -106,24 +108,12 @@ int extractInfobox(const std::string &text, const int start) {
 
     // TODO: remove this check later
     if (cnt != 0) {
+//        std::cout << page->title << std::endl;
         std::cout << cnt << std::endl;
-        exit(123);
+        exit(1);
     }
 
     return end;
-}
-
-int hasSection(const std::string &text, int curr) {
-    if (curr < text.size() - 3 and text[curr] == '\n' and text[curr + 1] == '=' and text[curr + 2] == '=')
-        return true;
-    return false;
-}
-
-int hasCategory(const std::string &text, int curr) {
-    if (curr < text.size() - 10 and text[curr] == '\n' and text[curr + 1] == '[' and text[curr + 2] == '[' and
-        Preprocessor::fast_equals(text, TEXT_CATEGORY, curr + 3))
-        return true;
-    return false;
 }
 
 int extractCategory(const std::string &text, const int start) {
@@ -144,7 +134,7 @@ int extractExternalLinks(const std::string &text, const int start) {
     int end = start;
 
     // assume external links are followed by categorical information
-    while (end < text.size() - 1 and not hasCategory(text, end + 1)) {
+    while (end < text.size() - 1 and not Preprocessor::fast_equals(text, TEXT_CATEGORY, end + 1)) {
         end++;
     }
 
@@ -155,7 +145,8 @@ int extractReferences(const std::string &text, int start) {
     int end = start;
 
     // assume external links are followed by categorical information
-    while (end < text.size() - 1 and not hasSection(text, end + 1)) {
+    while (end < text.size() - 1 and not Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, end + 1) and
+           not Preprocessor::fast_equals(text, TEXT_CATEGORY, end + 1)) {
         end++;
     }
 
@@ -167,45 +158,30 @@ void extractData(memory_type *mem, WikiPage *page) {
     auto docid = page->docid;
     auto &all_data = *mem->alldata;
     std::string bodyText;
-    bool infoSeen = false;
 
     for (auto &c : text) c = Preprocessor::lowercase(c);
 
     for (int i = 0; i < text.size(); i++) {
         int end = -1;
-        int start;
+        int start = i;
         int zone = -1;
 
-        if (text[i] == '=' and text[i + 1] == '=') {
-            int s = i + 2;
-            if (text[s] == ' ') s++;
-
-            if (Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, s)) {
-                start = s + TEXT_EXTERNAL_LINKS.size() + 2;
-                zone = EXTERNAL_LINKS_ZONE;
-                end = extractExternalLinks(text, start);
-            } else if (Preprocessor::fast_equals(text, TEXT_REFERENCES, s)) {
-                start = s + TEXT_REFERENCES.size() + 2;
-                zone = REFERENCES_ZONE;
-                end = extractReferences(text, start);
-            }
-        } else if (not infoSeen and text[i] == '{' and text[i + 1] == '{') {
-            int s = i + 2;
-            if (text[s] == ' ') s++;
-            if (Preprocessor::fast_equals(text, TEXT_INFOBOX, s)) {
-                start = s + TEXT_INFOBOX.size();
-                zone = INFOBOX_ZONE;
-                infoSeen = true;
-                end = extractInfobox(text, start);
-            }
-        } else if (text[i] == '[' and text[i + 1] == '[') {
-            int s = i + 2;
-            if (text[s] == ' ') s++;
-            if (Preprocessor::fast_equals(text, TEXT_CATEGORY, s)) {
-                start = s + TEXT_CATEGORY.size();
-                zone = CATEGORY_ZONE;
-                end = extractCategory(text, start);
-            }
+        if (Preprocessor::fast_equals(text, TEXT_INFOBOX, i)) {
+            start += TEXT_INFOBOX.size();
+            zone = INFOBOX_ZONE;
+            end = extractInfobox(text, i);
+        } else if (Preprocessor::fast_equals(text, TEXT_CATEGORY, i)) {
+            start += TEXT_CATEGORY.size();
+            zone = CATEGORY_ZONE;
+            end = extractCategory(text, i);
+        } else if (Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, i)) {
+            start += TEXT_EXTERNAL_LINKS.size();
+            zone = EXTERNAL_LINKS_ZONE;
+            end = extractExternalLinks(text, i);
+        } else if (Preprocessor::fast_equals(text, TEXT_REFERENCES, i)) {
+            start += TEXT_REFERENCES.size();
+            zone = REFERENCES_ZONE;
+            end = extractReferences(text, i);
         } else {
             bodyText += text[i];
         }
