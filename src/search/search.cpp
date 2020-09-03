@@ -5,6 +5,8 @@
 #include <limits>
 #include <pthread.h>
 #include <ctime>
+#include <algorithm>
+#include <cstring>
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/zip_operations.cpp"
 
@@ -13,7 +15,6 @@ constexpr int BLOCK_SIZE = 5;
 
 Preprocessor *processor;
 std::string outputDir;
-std::map<std::string, int> termIDMap;
 std::map<int, std::string> docIdMap;
 int fileCount;
 
@@ -126,17 +127,44 @@ void *searchFileThreaded(void *arg) {
     return nullptr;
 }
 
+// PRECONDITION: tokens is not empty
+std::set<int> *getTokenIDs(std::vector<std::string> &tokens) {
+    auto idSet = new std::set<int>();
+    std::sort(tokens.begin(), tokens.end());
+    int currToken = 0;
+
+    std::ifstream termIDsFile(outputDir + "terms", std::ios_base::in);
+
+    int termCount;
+    termIDsFile >> termCount;
+
+    for (int i = 0; i < termCount; i++) {
+        std::string token;
+        termIDsFile >> token;
+        int id;
+        termIDsFile >> id;
+
+        int res = std::strcmp(token.c_str(), tokens[currToken].c_str());
+        if (res >= 0) {
+            if (res == 0) {
+                idSet->insert(id);
+            }
+            currToken++;
+            if (currToken == tokens.size()) break;
+        }
+    }
+
+    return idSet;
+}
+
+// PRECONDITION: query is not empty
 std::set<int> performSearch(const std::string &query, int zone) {
     int threadCount = ceil(fileCount, BLOCK_SIZE);
     auto shared_data = new shared_mem_type(threadCount);
 
     auto tokens = processor->getStemmedTokens(query, 0, query.size() - 1);
 
-    auto tokenIDS = new std::set<int>();
-    for (auto &token : tokens) {
-        auto id = termIDMap[token];
-        tokenIDS->insert(id);
-    }
+    auto tokenIDS = getTokenIDs(tokens);
 
     std::vector<pthread_t> threads(threadCount);
     std::vector<query_type *> query_data_vec(threadCount);
@@ -169,16 +197,6 @@ std::set<int> performSearch(const std::string &query, int zone) {
     return docIds;
 }
 
-void readTermIds() {
-    std::ifstream termIDs(outputDir + "terms", std::ios_base::in);
-    int termCount;
-    termIDs >> termCount;
-    for (int i = 0; i < termCount; i++) {
-        std::string token;
-        termIDs >> token;
-        termIDs >> termIDMap[token];
-    }
-}
 
 void readDocIds() {
     std::ifstream docIDs(outputDir + "docs", std::ios_base::in);
@@ -205,7 +223,6 @@ int main(int argc, char *argv[]) {
     fileStats >> fileCount;
     assert(fileCount > 0 and fileCount < 100);
 
-    readTermIds();
     readDocIds();
 
     char *query = argv[2];
@@ -213,11 +230,13 @@ int main(int argc, char *argv[]) {
     int zoneI = 0;
 
     for (const auto &zone : zonalQueries) {
-        const auto docIds = performSearch(zone, zoneI);
-        for (const auto id : docIds) {
-            const auto &str = docIdMap[id];
-            assert(not str.empty());
-            searchResults[zoneI].push_back(str);
+        if (not zone.empty()) {
+            const auto docIds = performSearch(zone, zoneI);
+            for (const auto id : docIds) {
+                const auto &str = docIdMap[id];
+                assert(not str.empty());
+                searchResults[zoneI].push_back(str);
+            }
         }
         zoneI++;
     }
@@ -239,7 +258,8 @@ int main(int argc, char *argv[]) {
     end_time
 
     std::cout << "Search finished in time " << timer << std::endl;
-    delete st; delete et;
+    delete st;
+    delete et;
 
     return 0;
 }
