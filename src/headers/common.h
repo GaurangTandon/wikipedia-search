@@ -1,4 +1,5 @@
 #include <map>
+#include <vector>
 
 // have text zone first, since most tokens occur in text only
 enum {
@@ -16,7 +17,7 @@ std::map<int, std::string> reverseZonal = {
         {REFERENCES_ZONE, "References"}
 };
 
-// data[term_id] = postings list; list[i] = { doc_id, { freq_information }};
+// data[term_name] = postings list; list[i] = { doc_id, { freq_information }};
 typedef std::map<std::string, std::vector<std::pair<int, std::vector<int>>>> data_type;
 
 #define start_time clock_gettime(CLOCK_MONOTONIC, st);

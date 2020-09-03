@@ -1,5 +1,7 @@
 #include "../bzip2/bzlib.h"
 #include <stdio.h>
+#include <iostream>
+#include <cassert>
 
 // number of characters in index file is around 1M using 1000 records
 constexpr int OUTPUT_BUF_MX_SIZE = 200000;
@@ -133,6 +135,9 @@ struct ReadBuffer {
         BZ2_bzRead(&bzError, bzFile, buf, 1);
 
         if (bzError != BZ_OK) {
+            if (bzError == BZ_STREAM_END) {
+                return 0;
+            }
             fprintf(stderr, "E: BZ2_bzRead: %d\n", bzError);
             exit(1);
         }

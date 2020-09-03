@@ -1,5 +1,6 @@
 #include <vector>
 #include <string>
+#include <algorithm>
 #include "id_handler.cpp"
 #include "zip_operations.cpp"
 
@@ -10,28 +11,30 @@ void setOutputDir(const std::string &dir) {
 }
 
 void writeIndex(const data_type *allDataP, const int fileNum) {
-    const auto &allData = *allDataP;
+    auto &allData = *allDataP;
     const std::string filename = outputDir + "index" + std::to_string(fileNum);
 
     auto outputBuffer = WriteBuffer(filename);
 
     const char INTRA_SEP = ',';
     const char INTER_SEP = ';';
-    std::vector<int> termIDs;
+    std::vector<std::pair<int, std::string>> termIDs;
     termIDs.reserve(allData.size());
 
     pthread_mutex_lock(&term_id_mutex);
     for (const auto &term_data : allData) {
-        termIDs.push_back(add_term(term_data.first));
+        termIDs.emplace_back(add_term(term_data.first), term_data.first);
     }
     pthread_mutex_unlock(&term_id_mutex);
+    std::sort(termIDs.begin(), termIDs.end());
 
     outputBuffer.write(allData.size(), '\n');
 
     int termIdx = 0;
-    for (const auto &term_data : allData) {
-        const auto &termid = termIDs[termIdx];
-        const auto &postings = term_data.second;
+    for (const auto &term_data : termIDs) {
+        const auto &termid = term_data.first;
+        const auto &postings = allData.at(term_data.second);
+        // document ids in a postings list are always already sorted
 
         outputBuffer.write(termid, ' ');
         outputBuffer.write(postings.size(), ' ');

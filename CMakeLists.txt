@@ -29,3 +29,6 @@ add_executable(wikipedia_search
 add_executable(searcher
         ${OBJS}
         src/search/search.cpp)
+
+add_executable(tester
+        src/file_handling/zipReadTest.cpp)
