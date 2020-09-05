@@ -42,7 +42,9 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
         // document ids in a postings list are always already sorted
 
         mainBuff.write(termid, ' ');
-        mainBuff.write(postings.size(), '\n');
+        // newline is unreliable here; as it gets stripped for the last line automatically
+        // which causes bzip issue when trying to read
+        mainBuff.write(postings.size(), ' ');
 
         for (const auto &doc_data : postings) {
             const auto &docid = doc_data.first;

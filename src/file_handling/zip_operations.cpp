@@ -138,7 +138,8 @@ struct ReadBuffer {
         BZ2_bzRead(&bzError, bzFile, buf, 1);
 
         if (bzError != BZ_OK) {
-            if (bzError == BZ_STREAM_END) {
+            // Not sure why but I'm getting sequence errors on stream end :/
+            if (bzError == BZ_STREAM_END or bzError == BZ_SEQUENCE_ERROR) {
                 return 0;
             }
             fprintf(stderr, "E: BZ2_bzRead: %d\n", bzError);
@@ -153,7 +154,7 @@ struct ReadBuffer {
 
         do {
             const char c = readChar();
-            if (c == delim) break;
+            if (c == delim or c == 0) break;
             num = num * 10 + (c - '0');
         } while (true);
 

@@ -50,7 +50,7 @@ void KWayMerge() {
     std::vector<int> pointers(fileCount, 0);
     std::vector<int> totalSizes(fileCount, 0);
     // { token-id, fileCount }
-    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::less<>> currTokenId;
+    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> currTokenId;
     auto readBuffers = (ReadBuffer ***) malloc(sizeof(ReadBuffer *) * (ZONE_COUNT + 2));
     for (int i = 0; i <= ZONE_COUNT + 1; i++) {
         readBuffers[i] = (ReadBuffer **) malloc(sizeof(ReadBuffer *) * fileCount);
@@ -72,7 +72,7 @@ void KWayMerge() {
 
     // as ou see at least as many docs in the current merged index,
     // then split into a new merged index for the new term
-    constexpr int TERMS_THRESHOLD = 1000;
+    constexpr int TERMS_THRESHOLD = 100000;
     int currentMergedCount = 0;
     int termsWritten = 0;
 
@@ -148,7 +148,7 @@ void KWayMerge() {
 
         while (not currTokenId.empty() and currTokenId.top().first == smallestTermId) {
             int fileN = perTermFileNumbers[termsWritten][currFileCount] = currTokenId.top().second;
-            int docCountForThisFile = readBuffers[ZONE_COUNT + 1][fileN]->readInt('\n');
+            int docCountForThisFile = readBuffers[ZONE_COUNT + 1][fileN]->readInt();
             perTermDocCount[termsWritten][currFileCount] = docCountForThisFile;
             currTokenDocCount += docCountForThisFile;
             currTokenId.pop();
@@ -177,6 +177,25 @@ void KWayMerge() {
     }
     if (termsWritten > 0)
         flushBuffers(false);
+
+    for (int i = 0; i < TERMS_THRESHOLD; i++) {
+        free(perTermFileNumbers[i]);
+        free(perTermDocCount[i]);
+    }
+    free(perTermFileNumbers);
+    free(perTermDocCount);
+    free(perTermFileCount);
+    free(writeBuffers);
+    for (int i = 0; i <= ZONE_COUNT + 1; i++) {
+        for (int j = 0; j < fileCount; j++) {
+            readBuffers[i][j]->close();
+            delete readBuffers[i][j];
+        }
+    }
+    for (int i = 0; i <= ZONE_COUNT + 1; i++) {
+       free(readBuffers[i]);
+    }
+    free(readBuffers);
 }
 
 int main(int argc, char *argv[]) {
