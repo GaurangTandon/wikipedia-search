@@ -12,15 +12,15 @@ void setOutputDir(const std::string &dir) {
 
 void writeIndex(const data_type *allDataP, const int fileNum) {
     auto &allData = *allDataP;
-    std::vector<WriteBuffer> buffers(ZONE_COUNT + 1);
+    std::vector<WriteBuffer> buffers(ZONE_COUNT + 2);
 
     for (int i = 0; i < ZONE_COUNT; i++) {
         auto filename = outputDir + "i" + zoneFirstLetter[i] + std::to_string(fileNum);
         buffers[i] = WriteBuffer(filename);
     }
     // term count; term id+doc cout for each term goes here
-    buffers[ZONE_COUNT] = WriteBuffer(outputDir + "i" + std::to_string(fileNum));
-    auto &mainBuff = buffers.back();
+    buffers[ZONE_COUNT] = WriteBuffer(outputDir + "iid" + std::to_string(fileNum));
+    auto &mainBuff = buffers[ZONE_COUNT + 1] = WriteBuffer(outputDir + "i" + std::to_string(fileNum));
     // the freq related information belongs to other buffers
 
     std::vector<std::pair<int, std::string>> termIDs;
@@ -42,12 +42,12 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
         // document ids in a postings list are always already sorted
 
         mainBuff.write(termid, ' ');
-        mainBuff.write(postings.size(), ' ');
+        mainBuff.write(postings.size(), '\n');
 
         for (const auto &doc_data : postings) {
             const auto &docid = doc_data.first;
             const auto &freq = doc_data.second;
-            mainBuff.write(docid, ' ');
+            buffers[ZONE_COUNT].write(docid, ' ');
 
             // TODO: parallelize
             for (int i = 0; i < ZONE_COUNT; i++) {
@@ -55,7 +55,6 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
             }
         }
 
-        mainBuff.write('\n');
         termIdx++;
     }
 

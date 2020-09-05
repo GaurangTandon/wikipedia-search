@@ -13,9 +13,10 @@ int fileCount;
 // pointer dereference costs very little: // https://stackoverflow.com/questions/1910712/ // https://stackoverflow.com/questions/431469
 typedef struct readWriteType {
     int zone;
-    int fileCount;
-    int *docCount;
-    int *fileNumbers;
+    int termCount;
+    int *perTermFileCount;
+    int **docCount;
+    int **fileNumbers;
     ReadBuffer ***readBuffer;
     WriteBuffer **writeBuffer;
 } readWriteType;
@@ -23,21 +24,21 @@ typedef struct readWriteType {
 // each thread only reads buffers relevant to its zone
 void *readAndWriteSequential(void *arg) {
     const auto data = (readWriteType *) arg;
-    const int lim = data->fileCount;
 
     auto &buffers = data->readBuffer[data->zone];
+    auto &writeBuff = data->writeBuffer[data->zone];
 
-    for (int i = 0; i < lim; i++) {
-        const auto &count = data->docCount[i];
-        const auto &fileN = data->fileNumbers[i];
+    for (int termI = 0; termI < data->termCount; termI++) {
+        const int lim = data->perTermFileCount[termI];
 
-        for (int j = 0; j < count; j++) {
-            int val = buffers[fileN]->readInt();
-            data->writeBuffer[data->zone]->write(val, ' ');
-        }
+        for (int i = 0; i < lim; i++) {
+            const auto &count = data->docCount[termI][i];
+            const auto &fileN = data->fileNumbers[termI][i];
 
-        if (data->zone == ZONE_COUNT) {
-            assert(buffers[fileN]->readChar() == '\n');
+            for (int j = 0; j < count; j++) {
+                int val = buffers[fileN]->readInt();
+                writeBuff->write(val, ' ');
+            }
         }
     }
 
@@ -50,8 +51,8 @@ void KWayMerge() {
     std::vector<int> totalSizes(fileCount, 0);
     // { token-id, fileCount }
     std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::less<>> currTokenId;
-    auto readBuffers = (ReadBuffer ***) malloc(sizeof(ReadBuffer *) * (ZONE_COUNT + 1));
-    for (int i = 0; i <= ZONE_COUNT; i++) {
+    auto readBuffers = (ReadBuffer ***) malloc(sizeof(ReadBuffer *) * (ZONE_COUNT + 2));
+    for (int i = 0; i <= ZONE_COUNT + 1; i++) {
         readBuffers[i] = (ReadBuffer **) malloc(sizeof(ReadBuffer *) * fileCount);
     }
 
@@ -61,7 +62,8 @@ void KWayMerge() {
         for (int j = 0; j < ZONE_COUNT; j++) {
             readBuffers[j][i] = new ReadBuffer(outputDir + "i" + zoneFirstLetter[j] + iStr);
         }
-        auto &tempBuff = readBuffers[ZONE_COUNT][i] = new ReadBuffer(outputDir + "i" + iStr);
+        readBuffers[ZONE_COUNT][i] = new ReadBuffer(outputDir + "iid" + iStr);
+        auto &tempBuff = readBuffers[ZONE_COUNT + 1][i] = new ReadBuffer(outputDir + "i" + iStr);
 
         totalSizes[i] = tempBuff->readInt('\n');
         int tokenid = tempBuff->readInt();
@@ -70,9 +72,8 @@ void KWayMerge() {
 
     // as ou see at least as many docs in the current merged index,
     // then split into a new merged index for the new term
-    constexpr int DOC_THRESHOLD = 100000;
+    constexpr int TERMS_THRESHOLD = 1000;
     int currentMergedCount = 0;
-    int currentDocCount = 0;
     int termsWritten = 0;
 
     auto writeBuffers = (WriteBuffer **) malloc((ZONE_COUNT + 2) * sizeof(WriteBuffer *));
@@ -80,8 +81,17 @@ void KWayMerge() {
     // mimain has termid-doccount, miids has docids one after the other
     // mit, mic, mil, mib, mir, mii, mimain, miids
 
+    auto perTermDocCount = (int **) malloc(sizeof(int *) * TERMS_THRESHOLD);
+    auto perTermFileNumbers = (int **) malloc(sizeof(int *) * TERMS_THRESHOLD);
+    auto perTermFileCount = (int *) malloc(sizeof(int) * TERMS_THRESHOLD);
+    for (int i = 0; i < TERMS_THRESHOLD; i++) {
+        perTermDocCount[i] = (int *) malloc(sizeof(int) * fileCount);
+        perTermFileNumbers[i] = (int *) malloc(sizeof(int) * fileCount);
+    }
+
+    pthread_t threads[ZONE_COUNT + 1];
+
     auto initializeBuffer = [&]() {
-        currentDocCount = 0;
         termsWritten = 0;
 
         auto str = std::to_string(currentMergedCount);
@@ -95,68 +105,78 @@ void KWayMerge() {
 
     std::ofstream statFile("final_stat.txt", std::ios_base::out);
 
+    int totalTermsWritten = 0;
+
     auto closeBuffers = [&]() {
+        totalTermsWritten += termsWritten;
+        std::cout << totalTermsWritten << std::endl;
         for (int i = 0; i <= ZONE_COUNT + 1; i++) {
             writeBuffers[i]->close();
+            delete writeBuffers[i];
         }
         statFile << termsWritten << std::endl;
     };
 
-    initializeBuffer();
-
-    auto docCount = (int *) malloc(sizeof(int) * fileCount);
-    auto fileNumbers = (int *) malloc(sizeof(int) * fileCount);
-
-    while (not currTokenId.empty()) {
-        int smallestTermId = currTokenId.top().first;
-        termsWritten++;
-
-        int totalDocCount = 0;
-        int currFileCount = 0;
-
-        while (not currTokenId.empty() and currTokenId.top().first == smallestTermId) {
-            int fileN = fileNumbers[currFileCount] = currTokenId.top().second;
-            int docCountForThisFile = readBuffers[ZONE_COUNT][fileN]->readInt();
-            docCount[currFileCount] = docCountForThisFile;
-            totalDocCount += docCountForThisFile;
-            currTokenId.pop();
-            currFileCount++;
-        }
-
-        pthread_t threads[ZONE_COUNT + 1];
-
+    auto flushBuffers = [&](bool reInit = true) {
         for (int zone = 0; zone <= ZONE_COUNT; zone++) {
             auto threadData = new readWriteType();
             threadData->zone = zone;
+            threadData->termCount = termsWritten;
             threadData->writeBuffer = writeBuffers;
             threadData->readBuffer = readBuffers;
-            threadData->docCount = docCount;
-            threadData->fileNumbers = fileNumbers;
-            threadData->fileCount = currFileCount;
+            threadData->docCount = perTermDocCount;
+            threadData->fileNumbers = perTermFileNumbers;
+            threadData->perTermFileCount = perTermFileCount;
             pthread_create(&threads[zone], nullptr, readAndWriteSequential, threadData);
         }
         for (int i = 0; i <= ZONE_COUNT; i++) {
             pthread_join(threads[i], nullptr);
         }
-        writeBuffers[ZONE_COUNT + 1]->write(smallestTermId, ' ');
-        writeBuffers[ZONE_COUNT + 1]->write(totalDocCount, ' ');
+        closeBuffers();
+
+        if (reInit)
+            initializeBuffer();
+    };
+
+    initializeBuffer();
+
+    while (not currTokenId.empty()) {
+        int smallestTermId = currTokenId.top().first;
+
+        int currTokenDocCount = 0;
+        auto &currFileCount = perTermFileCount[termsWritten] = 0;
+
+        while (not currTokenId.empty() and currTokenId.top().first == smallestTermId) {
+            int fileN = perTermFileNumbers[termsWritten][currFileCount] = currTokenId.top().second;
+            int docCountForThisFile = readBuffers[ZONE_COUNT + 1][fileN]->readInt('\n');
+            perTermDocCount[termsWritten][currFileCount] = docCountForThisFile;
+            currTokenDocCount += docCountForThisFile;
+            currTokenId.pop();
+            currFileCount++;
+        }
 
         for (int i = 0; i < currFileCount; i++) {
-            int fileN = fileNumbers[i];
+            int fileN = perTermFileNumbers[termsWritten][i];
 
             totalSizes[fileN]--;
 
-            if (totalSizes[fileN] > 0) currTokenId.emplace(readBuffers[ZONE_COUNT][fileN]->readInt(), fileN);
+            if (totalSizes[fileN] > 0) {
+                int tokenid = readBuffers[ZONE_COUNT + 1][fileN]->readInt();
+                currTokenId.emplace(tokenid, fileN);
+            }
         }
 
-        currentDocCount += totalDocCount;
-        if (currentDocCount >= DOC_THRESHOLD) {
-            closeBuffers();
-            initializeBuffer();
+        writeBuffers[ZONE_COUNT + 1]->write(smallestTermId, ' ');
+        writeBuffers[ZONE_COUNT + 1]->write(currTokenDocCount, ' ');
+
+        termsWritten++;
+
+        if (termsWritten >= TERMS_THRESHOLD) {
+            flushBuffers();
         }
     }
-    if (currentDocCount > 0)
-        closeBuffers();
+    if (termsWritten > 0)
+        flushBuffers(false);
 }
 
 int main(int argc, char *argv[]) {
