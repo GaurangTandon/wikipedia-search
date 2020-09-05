@@ -16,27 +16,27 @@ typedef struct readWriteType {
     int fileCount;
     std::vector<int> *docCount;
     std::vector<int> *fileNumbers;
-    std::vector<std::vector<ReadBuffer>> *readBuffer;
-    std::vector<WriteBuffer> *writeBuffer;
+    ReadBuffer ***readBuffer;
+    WriteBuffer **writeBuffer;
 } readWriteType;
 
 void *readAndWriteSequential(void *arg) {
     const auto data = (readWriteType *) arg;
     const int lim = data->fileCount;
 
-    auto &buffers = (*data->readBuffer)[data->zone];
+    auto &buffers = data->readBuffer[data->zone];
 
     for (int i = 0; i < lim; i++) {
         const auto &count = (*data->docCount)[i];
         const auto &fileN = (*data->fileNumbers)[i];
 
         for (int j = 0; j < count; j++) {
-            int val = buffers[fileN].readInt();
+            int val = buffers[fileN]->readInt();
             (*data->writeBuffer)[data->zone].write(val, ' ');
         }
 
         if (data->zone == ZONE_COUNT) {
-            assert(buffers[fileN].readChar() == '\n');
+            assert(buffers[fileN]->readChar() == '\n');
         }
     }
 
@@ -49,18 +49,21 @@ void KWayMerge() {
     std::vector<int> totalSizes(fileCount, 0);
     // { token-id, fileCount }
     std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::less<>> currTokenId;
-    auto readBuffers = new std::vector<std::vector<ReadBuffer>>(ZONE_COUNT + 1, std::vector<ReadBuffer>(fileCount));
+    auto readBuffers = (ReadBuffer ***) malloc(sizeof(ReadBuffer *) * (ZONE_COUNT + 1));
+    for (int i = 0; i <= ZONE_COUNT; i++) {
+        readBuffers[i] = (ReadBuffer **) malloc(sizeof(ReadBuffer *) * fileCount);
+    }
 
     for (auto i = 0; i < fileCount; i++) {
         auto iStr = std::to_string(i);
 
         for (int j = 0; j < ZONE_COUNT; j++) {
-            (*readBuffers)[j][i] = ReadBuffer(outputDir + "i" + zoneFirstLetter[j] + iStr);
+            readBuffers[j][i] = new ReadBuffer(outputDir + "i" + zoneFirstLetter[j] + iStr);
         }
-        auto &tempBuff = (*readBuffers)[ZONE_COUNT][i] = ReadBuffer(outputDir + "i" + iStr);
+        auto &tempBuff = readBuffers[ZONE_COUNT][i] = new ReadBuffer(outputDir + "i" + iStr);
 
-        totalSizes[i] = tempBuff.readInt('\n');
-        int tokenid = tempBuff.readInt();
+        totalSizes[i] = tempBuff->readInt('\n');
+        int tokenid = tempBuff->readInt();
         currTokenId.emplace(tokenid, i);
     }
 
@@ -71,7 +74,7 @@ void KWayMerge() {
     int currentDocCount = 0;
     int termsWritten = 0;
 
-    auto *writeBuffers = new std::vector<WriteBuffer>(ZONE_COUNT + 2);
+    auto writeBuffers = (WriteBuffer **) malloc((ZONE_COUNT + 2) * sizeof(WriteBuffer *));
     // merged index{zone}, merged index main, merged index docids
     // mimain has termid-doccount, miids has docids one after the other
     // mit, mic, mil, mib, mir, mii, mimain, miids
@@ -82,10 +85,10 @@ void KWayMerge() {
 
         auto str = std::to_string(currentMergedCount);
         for (int i = 0; i < ZONE_COUNT; i++) {
-            (*writeBuffers)[i] = WriteBuffer("mi" + zoneFirstLetter[i] + str);
+            writeBuffers[i] = new WriteBuffer(outputDir + "mi" + zoneFirstLetter[i] + str);
         }
-        (*writeBuffers)[ZONE_COUNT] = WriteBuffer("miids" + str);
-        (*writeBuffers)[ZONE_COUNT + 1] = WriteBuffer("mimain" + str);
+        writeBuffers[ZONE_COUNT] = new WriteBuffer(outputDir + "miids" + str);
+        writeBuffers[ZONE_COUNT + 1] = new WriteBuffer(outputDir + "mimain" + str);
         currentMergedCount++;
     };
 
@@ -118,7 +121,7 @@ void KWayMerge() {
 
         // read and calculate the total document count
         for (auto &fileN : *fileNumbers) {
-            int val = (*readBuffers)[ZONE_COUNT][fileN].readInt();
+            int val = readBuffers[ZONE_COUNT][fileN]->readInt();
             docCount->push_back(val);
             totalDocCount += val;
         }
@@ -138,13 +141,13 @@ void KWayMerge() {
         for (int i = 0; i <= ZONE_COUNT; i++) {
             pthread_join(threads[i], nullptr);
         }
-        (*writeBuffers).back().write(smallestTermId, ' ');
-        (*writeBuffers).back().write(totalDocCount, ' ');
+        writeBuffers[ZONE_COUNT + 1]->write(smallestTermId, ' ');
+        writeBuffers[ZONE_COUNT + 1]->write(totalDocCount, ' ');
 
         for (auto &fileN : (*fileNumbers)) {
             totalSizes[fileN]--;
 
-            if (totalSizes[fileN] > 0) currTokenId.emplace((*readBuffers)[ZONE_COUNT][fileN].readInt(), fileN);
+            if (totalSizes[fileN] > 0) currTokenId.emplace(readBuffers[ZONE_COUNT][fileN]->readInt(), fileN);
         }
 
         currentDocCount += totalDocCount;
@@ -159,7 +162,7 @@ void KWayMerge() {
 
 int main(int argc, char *argv[]) {
     if (argc == 2) {
-        outputDir = std::string(std::string(argv[2])) + "/";
+        outputDir = std::string(std::string(argv[1])) + "/";
     }
 
     std::ifstream countFile(outputDir + "file_stat.txt");

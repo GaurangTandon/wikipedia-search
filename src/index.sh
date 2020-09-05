@@ -3,4 +3,5 @@
 rm -rf $2
 rm -rf $3
 mkdir $2
-dist/index.sh $1 $2 $3
+dist/indexer.sh $1 $2 $3
+dist/merger.sh $1

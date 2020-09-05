@@ -34,4 +34,5 @@ add_executable(tester
         src/file_handling/zipReadTest.cpp)
 
 add_executable(merger
+        ${OBJS}
         src/file_handling/mergeIndex.cpp)
