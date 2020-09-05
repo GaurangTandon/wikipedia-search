@@ -5,3 +5,4 @@ rm -rf $3
 mkdir $2
 dist/indexer.sh $1 $2 $3
 dist/merger.sh $1
+rm -r output/i* # remove old index files

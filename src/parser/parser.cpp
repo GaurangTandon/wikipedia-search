@@ -160,6 +160,7 @@ void extractData(memory_type *mem, WikiPage *page) {
     std::string bodyText;
 
     for (auto &c : text) c = Preprocessor::lowercase(c);
+    for (auto &c : page->title) c = Preprocessor::lowercase(c);
 
     for (int i = 0; i < text.size(); i++) {
         int end = -1;
@@ -193,9 +194,7 @@ void extractData(memory_type *mem, WikiPage *page) {
     }
 
     processText(all_data, docid, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
-    auto title_copy = page->title;
-    for (auto &c : title_copy) c = Preprocessor::lowercase(c);
-    processText(all_data, docid, TITLE_ZONE, title_copy, 0, title_copy.size() - 1);
+    processText(all_data, docid, TITLE_ZONE, page->title, 0, page->title.size() - 1);
 }
 
 class WikiSiteInfo {

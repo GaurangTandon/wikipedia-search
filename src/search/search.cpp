@@ -18,7 +18,7 @@ std::string outputDir;
 std::map<int, std::string> docIdMap;
 int fileCount;
 
-std::vector<std::string> extractZonalQueries(char *query) {
+std::vector<std::string> extractZonalQueries(const std::string &query) {
     std::vector<int> zones(255, -1);
     zones['t'] = TITLE_ZONE;
     zones['i'] = INFOBOX_ZONE;
@@ -32,17 +32,16 @@ std::vector<std::string> extractZonalQueries(char *query) {
     std::vector<std::string> zonalQueries(ZONE_COUNT);
     int currZone = TEXT_ZONE;
 
-    while (*query) {
-        auto c = *query;
+    for (int i = 0; i < query.size(); i++) {
+        auto c = query[i];
 
-        if (zones[c] > -1 and *(query + 1) == QUERY_SEP) {
+        if (zones[c] > -1 and i < query.size() - 1 and query[i + 1] == QUERY_SEP) {
             currZone = zones[c];
-            query += 2;
+            i++;
             continue;
         }
 
-        zonalQueries[currZone] += *query;
-        query++;
+        zonalQueries[currZone] += query[i];
     }
 
 
@@ -211,23 +210,16 @@ void readDocIds() {
     }
 }
 
-int main(int argc, char *argv[]) {
-    assert(argc == 3);
+auto st = new timespec(), et = new timespec();
+long double timer;
 
-    auto st = new timespec(), et = new timespec();
-    long double timer;
+void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     start_time
-
-    processor = new Preprocessor();
-    outputDir = std::string(argv[1]) + "/";
-
-    std::ifstream fileStats(outputDir + "file_stat.txt", std::ios_base::in);
-    fileStats >> fileCount;
-    assert(fileCount > 0 and fileCount < 100);
-
-    readDocIds();
-
-    char *query = argv[2];
+    int K;
+    inputFile >> K;
+    inputFile.ignore(std::numeric_limits<std::streamsize>::max(), ' '); // ignore ', '
+    std::string query;
+    getline(inputFile, query);
     auto zonalQueries = extractZonalQueries(query);
     int zoneI = 0;
 
@@ -244,20 +236,37 @@ int main(int argc, char *argv[]) {
     }
 
     zoneI = 0;
-    for (auto &result : searchResults) {
-        std::cout << "Zone " << reverseZonal[zoneI] << std::endl;
-        for (auto &title : result) {
-            std::cout << title << "; ";
-        }
-        std::cout << std::endl;
-        std::cout << "Total results: " << result.size() << std::endl;
-        std::cout << "------";
-        std::cout << std::endl;
-        zoneI++;
+
+    end_time
+
+    outputFile << timer << " " << (timer / K) << "\n\n";
+}
+
+int main(int argc, char *argv[]) {
+    assert(argc == 3);
+
+    processor = new Preprocessor();
+    outputDir = std::string(argv[1]) + "/";
+
+    std::ifstream fileStats(outputDir + "file_stat.txt", std::ios_base::in);
+    fileStats >> fileCount;
+    assert(fileCount > 0 and fileCount < 100);
+
+    readDocIds();
+
+    char *queryFilePath = argv[2];
+
+    std::ifstream queryFile(queryFilePath);
+    std::ofstream outputFile("queries_op.txt");
+
+    int queryCount;
+    queryFile >> queryCount;
+
+    for (int qI = 0; qI < queryCount; qI++) {
+        readAndProcessQuery(queryFile, outputFile);
     }
 
     delete processor;
-    end_time
 
     std::cout << "Search finished in time " << timer << std::endl;
     delete st;

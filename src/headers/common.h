@@ -38,3 +38,5 @@ typedef std::map<std::string, postings_list_type> data_type;
 #define end_time \
     clock_gettime(CLOCK_MONOTONIC, et); \
     timer = calc_time(st, et);
+
+constexpr int TERMS_PER_SPLIT_FILE = 10000;

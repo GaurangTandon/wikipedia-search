@@ -1,7 +1,7 @@
 #include "zip_operations.cpp"
 #include <fstream>
 #include <vector>
-#include <cassert>
+#include <ctime>
 #include <queue>
 #include "../headers/common.h"
 
@@ -10,6 +10,9 @@
 std::string outputDir;
 int fileCount;
 
+ReadBuffer ***readBuffers;
+WriteBuffer **writeBuffers;
+
 // pointer dereference costs very little: // https://stackoverflow.com/questions/1910712/ // https://stackoverflow.com/questions/431469
 typedef struct readWriteType {
     int zone;
@@ -17,16 +20,14 @@ typedef struct readWriteType {
     int *perTermFileCount;
     int **docCount;
     int **fileNumbers;
-    ReadBuffer ***readBuffer;
-    WriteBuffer **writeBuffer;
 } readWriteType;
 
 // each thread only reads buffers relevant to its zone
 void *readAndWriteSequential(void *arg) {
     const auto data = (readWriteType *) arg;
 
-    auto &buffers = data->readBuffer[data->zone];
-    auto &writeBuff = data->writeBuffer[data->zone];
+    auto &buffers = readBuffers[data->zone];
+    auto &writeBuff = writeBuffers[data->zone];
 
     for (int termI = 0; termI < data->termCount; termI++) {
         const int lim = data->perTermFileCount[termI];
@@ -47,11 +48,16 @@ void *readAndWriteSequential(void *arg) {
 }
 
 void KWayMerge() {
+    auto st = new timespec(), et = new timespec();
+    long double timer;
+
+    start_time
+
     std::vector<int> pointers(fileCount, 0);
     std::vector<int> totalSizes(fileCount, 0);
     // { token-id, fileCount }
     std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> currTokenId;
-    auto readBuffers = (ReadBuffer ***) malloc(sizeof(ReadBuffer *) * (ZONE_COUNT + 2));
+    readBuffers = (ReadBuffer ***) malloc(sizeof(ReadBuffer *) * (ZONE_COUNT + 2));
     for (int i = 0; i <= ZONE_COUNT + 1; i++) {
         readBuffers[i] = (ReadBuffer **) malloc(sizeof(ReadBuffer *) * fileCount);
     }
@@ -72,19 +78,18 @@ void KWayMerge() {
 
     // as ou see at least as many docs in the current merged index,
     // then split into a new merged index for the new term
-    constexpr int TERMS_THRESHOLD = 100000;
     int currentMergedCount = 0;
     int termsWritten = 0;
 
-    auto writeBuffers = (WriteBuffer **) malloc((ZONE_COUNT + 2) * sizeof(WriteBuffer *));
+    writeBuffers = (WriteBuffer **) malloc((ZONE_COUNT + 2) * sizeof(WriteBuffer *));
     // merged index{zone}, merged index main, merged index docids
     // mimain has termid-doccount, miids has docids one after the other
     // mit, mic, mil, mib, mir, mii, mimain, miids
 
-    auto perTermDocCount = (int **) malloc(sizeof(int *) * TERMS_THRESHOLD);
-    auto perTermFileNumbers = (int **) malloc(sizeof(int *) * TERMS_THRESHOLD);
-    auto perTermFileCount = (int *) malloc(sizeof(int) * TERMS_THRESHOLD);
-    for (int i = 0; i < TERMS_THRESHOLD; i++) {
+    auto perTermDocCount = (int **) malloc(sizeof(int *) * TERMS_PER_SPLIT_FILE);
+    auto perTermFileNumbers = (int **) malloc(sizeof(int *) * TERMS_PER_SPLIT_FILE);
+    auto perTermFileCount = (int *) malloc(sizeof(int) * TERMS_PER_SPLIT_FILE);
+    for (int i = 0; i < TERMS_PER_SPLIT_FILE; i++) {
         perTermDocCount[i] = (int *) malloc(sizeof(int) * fileCount);
         perTermFileNumbers[i] = (int *) malloc(sizeof(int) * fileCount);
     }
@@ -103,7 +108,7 @@ void KWayMerge() {
         currentMergedCount++;
     };
 
-    std::ofstream statFile("final_stat.txt", std::ios_base::out);
+    std::ofstream statFile("last_file_terms.txt", std::ios_base::out);
 
     int totalTermsWritten = 0;
 
@@ -114,7 +119,6 @@ void KWayMerge() {
             writeBuffers[i]->close();
             delete writeBuffers[i];
         }
-        statFile << termsWritten << std::endl;
     };
 
     auto flushBuffers = [&](bool reInit = true) {
@@ -122,8 +126,6 @@ void KWayMerge() {
             auto threadData = new readWriteType();
             threadData->zone = zone;
             threadData->termCount = termsWritten;
-            threadData->writeBuffer = writeBuffers;
-            threadData->readBuffer = readBuffers;
             threadData->docCount = perTermDocCount;
             threadData->fileNumbers = perTermFileNumbers;
             threadData->perTermFileCount = perTermFileCount;
@@ -136,6 +138,7 @@ void KWayMerge() {
 
         if (reInit)
             initializeBuffer();
+        else statFile << termsWritten;
     };
 
     initializeBuffer();
@@ -171,14 +174,14 @@ void KWayMerge() {
 
         termsWritten++;
 
-        if (termsWritten >= TERMS_THRESHOLD) {
+        if (termsWritten >= TERMS_PER_SPLIT_FILE) {
             flushBuffers();
         }
     }
     if (termsWritten > 0)
         flushBuffers(false);
 
-    for (int i = 0; i < TERMS_THRESHOLD; i++) {
+    for (int i = 0; i < TERMS_PER_SPLIT_FILE; i++) {
         free(perTermFileNumbers[i]);
         free(perTermDocCount[i]);
     }
@@ -193,9 +196,12 @@ void KWayMerge() {
         }
     }
     for (int i = 0; i <= ZONE_COUNT + 1; i++) {
-       free(readBuffers[i]);
+        free(readBuffers[i]);
     }
     free(readBuffers);
+
+    end_time
+    std::cout << "Time taken to merge indexes and create split sorted files " << timer << std::endl;
 }
 
 int main(int argc, char *argv[]) {
