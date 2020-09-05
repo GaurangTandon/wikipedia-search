@@ -14,11 +14,16 @@ int main() {
         start_time
         auto buffer = ReadBuffer("output/index" + std::to_string(i));
         int charsRead = 0;
+        int x = 0;
 
-        while (buffer.readChar()) charsRead++;
+        char c;
+        while ((c = buffer.readChar())) {
+            if (c == '\n') x++;
+            charsRead++;
+        }
         end_time
 
-        std::cout << "Time to read " << charsRead << " chars: " << timer << std::endl;
+        std::cout << "Time to read " << charsRead << " " << x << " chars: " << timer << std::endl;
     }
     clock_gettime(CLOCK_MONOTONIC_RAW, ett);
     timer = calc_time(stt, ett);

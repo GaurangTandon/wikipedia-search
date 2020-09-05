@@ -10,7 +10,7 @@
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/zip_operations.cpp"
 
-constexpr int BLOCK_SIZE = 5;
+constexpr int BLOCK_SIZE = 1;
 #define ceil(x, y) (x + y - 1) / y
 
 Preprocessor *processor;
@@ -90,6 +90,7 @@ void *searchFileThreaded(void *arg) {
             int id = buffer.readInt();
 
             if (id != currTokenId) {
+                // SEARCH WIL
                 if (i < count - 1) buffer.ignoreTillDelim();
                 continue;
             }
@@ -101,10 +102,11 @@ void *searchFileThreaded(void *arg) {
                 std::vector<int> freq(ZONE_COUNT, 0);
                 int k = 0;
 
-                while (true) {
-                    auto res = buffer.readInt(';', ',');
-                    freq[k++] = res.first;
-                    if (res.second == ';') break;
+                for (int zoneI = 0; zoneI < ZONE_COUNT; zoneI++) {
+                    int val;
+                    if (zoneI == ZONE_COUNT - 1) val = buffer.readInt(';');
+                    else val = buffer.readInt(',');
+                    freq[k++] = val;
                 }
 
                 if (freq[query->zone]) docids.insert(docid);

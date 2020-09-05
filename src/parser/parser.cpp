@@ -232,6 +232,10 @@ void writeToFile(memory_type *mem) {
     delete et;
 }
 
+inline int get_docid(int threadNum, int docIdx) {
+    return threadNum * MX_MEM + docIdx;
+}
+
 void *thread_checkpoint(void *arg) {
     auto mem = (memory_type *) arg;
     long double timer;
@@ -239,13 +243,11 @@ void *thread_checkpoint(void *arg) {
 
     start_time
 
-    pthread_mutex_lock(&doc_id_mutex);
     for (int i = 0; i < mem->size; i++) {
         auto &page = mem->store[i];
-        page->docid = get_docid();
+        page->docid = get_docid(mem->checkpoint_num, i);
         docDetails[page->docid] = page->title;
     }
-    pthread_mutex_unlock(&doc_id_mutex);
 
     int sum = 0;
     for (int i = 0; i < mem->size; i++) {

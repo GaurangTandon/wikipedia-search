@@ -32,3 +32,6 @@ add_executable(searcher
 
 add_executable(tester
         src/file_handling/zipReadTest.cpp)
+
+add_executable(merger
+        src/file_handling/mergeIndex.cpp)

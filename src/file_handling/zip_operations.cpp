@@ -1,7 +1,6 @@
 #include "../bzip2/bzlib.h"
 #include <stdio.h>
 #include <iostream>
-#include <cassert>
 
 // number of characters in index file is around 1M using 1000 records
 constexpr int OUTPUT_BUF_MX_SIZE = 200000;
@@ -13,6 +12,8 @@ struct WriteBuffer {
     char *buffer;
     char *bufferOrg;
     int written;
+
+    WriteBuffer() {}
 
     WriteBuffer(const std::string &filepath) {
         bufferOrg = buffer = (char *) malloc((OUTPUT_BUF_MX_SIZE + 1) * sizeof(char));
@@ -110,6 +111,8 @@ struct ReadBuffer {
     char *buf;
     int bzError;
 
+    ReadBuffer() {}
+
     ReadBuffer(const std::string &filePath) {
         file = fopen(filePath.c_str(), "r");
         if (file == NULL) {
@@ -131,7 +134,7 @@ struct ReadBuffer {
         free(buf);
     }
 
-    char readChar() {
+    inline char readChar() {
         BZ2_bzRead(&bzError, bzFile, buf, 1);
 
         if (bzError != BZ_OK) {
@@ -145,38 +148,23 @@ struct ReadBuffer {
         return *buf;
     }
 
-    int readInt(char delim = ' ') {
+    inline int readInt(char delim = ' ') {
         int num = 0;
 
         do {
             const char c = readChar();
             if (c == delim) break;
-            assert ('0' <= c and c <= '9');
             num = num * 10 + (c - '0');
         } while (true);
 
         return num;
     }
 
-    std::pair<int, char> readInt(char d1, char d2) {
-        int num = 0;
-        char c;
-
-        do {
-            c = readChar();
-            if (c == d1 or c == d2) break;
-            assert('0' <= c and c <= '9');
-            num = num * 10 + (c - '0');
-        } while (true);
-
-        return {num, c};
-    }
-
-    void ignoreTillDelim(char delim = '\n') {
+    inline void ignoreTillDelim(char delim = '\n') {
         while (readChar() != delim);
     }
 
-    void close() {
+    inline void close() {
         BZ2_bzReadClose(&bzError, bzFile);
         if (bzError != BZ_OK) {
             fprintf(stderr, "E: BZ2_bzReadClose: %d\n", bzError);

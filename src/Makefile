@@ -7,7 +7,7 @@ EXEDIR = dist
 
 STEM_EXE = $(LIBSTEM)/libstemmer.o
 BZIP_EXE = $(BZIP_DIR)/libbz2.a
-CXXFLAGS = -pthread -O3 # -O0 -g -fsanitize=address -fsanitize=undefined
+CXXFLAGS = -pthread -O0 -g -fsanitize=address -fsanitize=undefined
 
 debug: prep runner searcher
 all: prep runner searcher

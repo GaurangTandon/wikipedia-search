@@ -12,12 +12,17 @@ void setOutputDir(const std::string &dir) {
 
 void writeIndex(const data_type *allDataP, const int fileNum) {
     auto &allData = *allDataP;
-    const std::string filename = outputDir + "index" + std::to_string(fileNum);
+    std::vector<WriteBuffer> buffers(ZONE_COUNT + 1);
 
-    auto outputBuffer = WriteBuffer(filename);
+    for (int i = 0; i < ZONE_COUNT; i++) {
+        auto filename = outputDir + "i" + zoneFirstLetter[i] + std::to_string(fileNum);
+        buffers[i] = WriteBuffer(filename);
+    }
+    // term count; term id+doc cout for each term goes here
+    buffers[ZONE_COUNT] = WriteBuffer(outputDir + "i" + std::to_string(fileNum));
+    auto &mainBuff = buffers.back();
+    // the freq related information belongs to other buffers
 
-    const char INTRA_SEP = ',';
-    const char INTER_SEP = ';';
     std::vector<std::pair<int, std::string>> termIDs;
     termIDs.reserve(allData.size());
 
@@ -28,7 +33,7 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
     pthread_mutex_unlock(&term_id_mutex);
     std::sort(termIDs.begin(), termIDs.end());
 
-    outputBuffer.write(allData.size(), '\n');
+    mainBuff.write(allData.size(), '\n');
 
     int termIdx = 0;
     for (const auto &term_data : termIDs) {
@@ -36,26 +41,25 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
         const auto &postings = allData.at(term_data.second);
         // document ids in a postings list are always already sorted
 
-        outputBuffer.write(termid, ' ');
-        outputBuffer.write(postings.size(), ' ');
+        mainBuff.write(termid, ' ');
+        mainBuff.write(postings.size(), ' ');
 
         for (const auto &doc_data : postings) {
             const auto &docid = doc_data.first;
             const auto &freq = doc_data.second;
-            outputBuffer.write(docid, ' ');
+            mainBuff.write(docid, ' ');
 
-            int lim = freq.size() - 1;
-            while (lim >= 0 and freq[lim] == 0) lim--;
-
-            for (int i = 0; i <= lim; i++) {
-                char sep = (i == lim) ? INTER_SEP : INTRA_SEP;
-                outputBuffer.write(freq[i], sep);
+            // TODO: parallelize
+            for (int i = 0; i < ZONE_COUNT; i++) {
+                buffers[i].write(freq[i], ' ');
             }
         }
 
-        outputBuffer.write('\n');
+        mainBuff.write('\n');
         termIdx++;
     }
 
-    outputBuffer.close();
+    mainBuff.close();
+    for (auto &buff : buffers)
+        buff.close();
 }
