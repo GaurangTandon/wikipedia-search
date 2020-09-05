@@ -59,7 +59,6 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
         termIdx++;
     }
 
-    mainBuff.close();
     for (auto &buff : buffers)
         buff.close();
 }

@@ -354,6 +354,8 @@ int main(int argc, char *argv[]) {
         ifs.close();
         delete wo;
         delete processor;
+        free(memory->store);
+        delete memory->alldata;
         free(memory);
 
         std::cout << "Written terms and docs in time " << timer << '\n';
