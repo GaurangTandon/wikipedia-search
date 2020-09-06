@@ -19,7 +19,7 @@ void *writeParallel(void *dataP) {
     auto &allData = *(data.allDataP);
 
     auto filename = outputDir + "i" + zoneFirstLetter[data.zone] + std::to_string(data.fileNum);
-    auto buffer = WriteBuffer(filename);
+    std::ofstream buffer(filename);
 
     for (const auto &term_data : allData) {
         const auto &postings = term_data.second;
@@ -27,7 +27,7 @@ void *writeParallel(void *dataP) {
         for (const auto &doc_data : postings) {
             const auto &freq = doc_data.second;
 
-            buffer.write(freq[data.zone], ' ');
+            buffer << freq[data.zone] << ' ';
         }
     }
 
@@ -40,11 +40,11 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
     auto &allData = *allDataP;
 
     // term count; term id+doc cout for each term goes here
-    auto idBuff = WriteBuffer(outputDir + "iid" + std::to_string(fileNum));
-    auto mainBuff = WriteBuffer(outputDir + "i" + std::to_string(fileNum));
+    std::ofstream idBuff(outputDir + "iid" + std::to_string(fileNum));
+    std::ofstream mainBuff(outputDir + "i" + std::to_string(fileNum));
     // the freq related information belongs to other buffers
 
-    mainBuff.write(allData.size(), '\n');
+    mainBuff << allData.size() << '\n';
 
     pthread_t threads[ZONE_COUNT];
     write_data_type *writeData[ZONE_COUNT];
@@ -61,14 +61,14 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
         const auto &postings = term_data.second;
         // document ids in a postings list are always already sorted
 
-        mainBuff.write(termString, ' ');
+        mainBuff << termString << ' ';
         // newline is unreliable here; as it gets stripped for the last line automatically
         // which causes bzip issue when trying to read
-        mainBuff.write(postings.size(), ' ');
+        mainBuff << postings.size() << ' ';
 
         for (const auto &doc_data : postings) {
             const auto &docid = doc_data.first;
-            idBuff.write(docid, ' ');
+            idBuff << docid << ' ';
         }
     }
 
