@@ -66,6 +66,7 @@ void *performSearch(void *dataP) {
     int prevFile = -1;
     ReadBuffer *mainBuff, *idBuff, *zonalBuff;
     data.results = new results_container();
+    if (tokens.empty()) return nullptr;
     int readCount;
     int readLim;
 
@@ -188,13 +189,9 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     // sorted from most score->least score
     std::vector<std::pair<int, std::string>> outputResults(K);
     std::vector<double> scores(K);
-    std::vector<std::pair<int, int>> docIdSorted(K); // id, index
+    std::vector<std::pair<int, int>> docIdSorted(results.size()); // id, index
 
-    if (results.size() < K) {
-        // TODO: append random results
-    }
-
-    for (int i = K - 1; i >= 0; i--) {
+    for (int i = int(results.size()) - 1; i >= 0; i--) {
         int docid = results.top().second;
         scores[i] = results.top().first;
         outputResults[i].first = docid;
@@ -203,6 +200,19 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     }
 
     sort(docIdSorted.begin(), docIdSorted.end());
+    int docIdTemp = 0, currI = 0;
+    while (docIdSorted.size() < K) {
+        if (currI < docIdSorted.size() and docIdSorted[currI].first == docIdTemp) {
+            currI++;
+            docIdTemp++;
+            continue;
+        }
+
+        int newidx = docIdSorted.size();
+        docIdSorted.emplace_back(docIdTemp, newidx);
+        outputResults[newidx].first = docIdTemp;
+        docIdTemp++;
+    }
 
     // Get string representation of title, and print it
     {
