@@ -21,7 +21,7 @@ std::ofstream docTitlesOutput;
 struct timespec *st = new timespec(), *et = new timespec();
 int currCheck = 0;
 
-constexpr int MX_THREADS = 200;
+constexpr int MX_THREADS = 5000;
 pthread_t threads[MX_THREADS];
 int threadCount = 0;
 
