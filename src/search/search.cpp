@@ -183,21 +183,19 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
     // Get string representation of title, and print it
     {
-        std::ifstream docIDs(outputDir + "docs", std::ios_base::in);
-        int docCount;
-        docIDs >> docCount;
+        std::ifstream docTitleFile(outputDir + "docs", std::ios_base::in);
 
-#define ignoreLine docIDs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+#define ignoreLine docTitleFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
         ignoreLine
 
         // TODO: can optimize using lseek, see if necessary
         int currI = 0;
-        for (int id = 0; id < docCount; id++) {
+        for (int id = 0; id < totalDocCount; id++) {
             if (id < docIdSorted[currI].first) ignoreLine
             else {
                 int idx = docIdSorted[currI].second;
-                getline(docIDs, outputResults[idx].second);
+                getline(docTitleFile, outputResults[idx].second);
                 currI++;
                 if (currI == K) break;
             }

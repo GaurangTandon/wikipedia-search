@@ -26,14 +26,14 @@ pthread_t threads[MX_THREADS];
 int threadCount = 0;
 
 constexpr int MX_MEM = 500;
-memory_type *memory;
+memory_type *globalMemory;
 
 void allocate_mem() {
-    memory = (memory_type *) malloc(sizeof(memory_type));
-    memory->store = (WikiPage **) malloc(sizeof(WikiPage *) * MX_MEM);
-    memory->size = 0;
-    memory->checkpoint_num = currCheck;
-    memory->alldata = new data_type();
+    globalMemory = (memory_type *) malloc(sizeof(memory_type));
+    globalMemory->store = (WikiPage **) malloc(sizeof(WikiPage *) * MX_MEM);
+    globalMemory->size = 0;
+    globalMemory->checkpoint_num = currCheck;
+    globalMemory->alldata = new data_type();
 }
 
 WikiPage::WikiPage(xml::parser &p) {
@@ -218,7 +218,7 @@ public:
 long double timer;
 
 // writes all the pages seen so far into a file
-void writeToFile(memory_type *mem) {
+inline void writeToFile(memory_type *mem) {
     long double timer;
     auto *st = new timespec(), *et = new timespec();
 
@@ -246,7 +246,7 @@ void *thread_checkpoint(void *arg) {
     int sum = 0;
     for (int i = 0; i < mem->size; i++) {
         auto &page = mem->store[i];
-        page->docid = get_docid(memory->checkpoint_num, i);
+        page->docid = get_docid(mem->checkpoint_num, i);
         sum += page->text.size();
         extractData(mem, page);
     }
@@ -273,16 +273,17 @@ void *thread_checkpoint(void *arg) {
 void checkpoint() {
     currCheck++;
 
-    int size = memory->size;
+    int size = globalMemory->size;
 
     // needs to be done sequentially
     for (int i = 0; i < size; i++) {
-        auto &page = memory->store[i];
+        auto &page = globalMemory->store[i];
         docTitlesOutput << page->title << '\n';
     }
     totalDocCount += size;
 
-    pthread_create(&threads[threadCount++], nullptr, thread_checkpoint, memory);
+    pthread_create(&threads[threadCount], nullptr, thread_checkpoint, globalMemory);
+    threadCount++;
 
     allocate_mem();
 }
@@ -300,9 +301,9 @@ public:
 
         while (p.peek() == xml::parser::start_element) {
             auto page = new WikiPage(p);
-            memory->store[memory->size++] = page;
+            globalMemory->store[globalMemory->size++] = page;
 
-            if (memory->size == MX_MEM) {
+            if (globalMemory->size == MX_MEM) {
                 checkpoint();
             }
         }
@@ -363,9 +364,9 @@ int main(int argc, char *argv[]) {
         ifs.close();
         delete wo;
         delete processor;
-        free(memory->store);
-        delete memory->alldata;
-        free(memory);
+        free(globalMemory->store);
+        delete globalMemory->alldata;
+        free(globalMemory);
     } catch (xml::parsing &e) {
         std::cout << e.what() << '\n';
         return 1;
