@@ -1,7 +1,5 @@
 #include <vector>
 #include <string>
-#include <algorithm>
-#include "id_handler.cpp"
 #include "zip_operations.cpp"
 
 std::string outputDir = "/home/gt/iiit/ire/wikipedia-search/output/";
@@ -23,25 +21,15 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
     auto &mainBuff = buffers[ZONE_COUNT + 1] = WriteBuffer(outputDir + "i" + std::to_string(fileNum));
     // the freq related information belongs to other buffers
 
-    std::vector<std::pair<int, std::string>> termIDs;
-    termIDs.reserve(allData.size());
-
-    pthread_mutex_lock(&term_id_mutex);
-    for (const auto &term_data : allData) {
-        termIDs.emplace_back(add_term(term_data.first), term_data.first);
-    }
-    pthread_mutex_unlock(&term_id_mutex);
-    std::sort(termIDs.begin(), termIDs.end());
-
     mainBuff.write(allData.size(), '\n');
 
     int termIdx = 0;
-    for (const auto &term_data : termIDs) {
-        const auto &termid = term_data.first;
-        const auto &postings = allData.at(term_data.second);
+    for (const auto &term_data : allData) {
+        const auto &termString = term_data.first;
+        const auto &postings = term_data.second;
         // document ids in a postings list are always already sorted
 
-        mainBuff.write(termid, ' ');
+        mainBuff.write(termString, ' ');
         // newline is unreliable here; as it gets stripped for the last line automatically
         // which causes bzip issue when trying to read
         mainBuff.write(postings.size(), ' ');

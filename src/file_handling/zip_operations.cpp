@@ -91,13 +91,18 @@ struct WriteBuffer {
         postwrite(cnt);
     }
 
-//    void write(const std::string &s) {
-//        int rem = charsLeft();
-//        if (rem <= s.size()) { flush(); write(s); return; }
-//
-//        int cnt = snprintf(buffer, rem, "%s", s.c_str());
-//        postwrite(cnt);
-//    }
+    void write(const std::string &s, char delim = ' ') {
+        int rem = charsLeft();
+        if (rem <= s.size() + 5) {
+            flush();
+            write(s, delim);
+            return;
+        }
+
+        int cnt = snprintf(buffer, rem, "%s%c", s.c_str(), delim);
+        assert(cnt == s.size() + 1);
+        postwrite(cnt);
+    }
 
     void postwrite(int outputChars) {
         written += outputChars;

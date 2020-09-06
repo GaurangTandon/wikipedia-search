@@ -6,8 +6,7 @@
 #include "../preprocess/preprocess.cpp"
 #include <pthread.h>
 #include "../headers/parsing_common.h"
-
-#include "../file_handling/termDocIdHandler.cpp"
+#include "../file_handling/filehandler.cpp"
 
 /*
  * next_expect(): if `content` argument is set, then event type must be start element
@@ -16,6 +15,8 @@
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
 std::string filePath;
 int totalTokenCount = 0;
+int totalDocCount = 0;
+std::ofstream docTitlesOutput;
 
 struct timespec *st = new timespec(), *et = new timespec();
 int currCheck = 0;
@@ -242,15 +243,10 @@ void *thread_checkpoint(void *arg) {
 
     start_time
 
-    for (int i = 0; i < mem->size; i++) {
-        auto &page = mem->store[i];
-        page->docid = get_docid(mem->checkpoint_num, i);
-        docDetails[page->docid] = page->title;
-    }
-
     int sum = 0;
     for (int i = 0; i < mem->size; i++) {
         auto &page = mem->store[i];
+        page->docid = get_docid(memory->checkpoint_num, i);
         sum += page->text.size();
         extractData(mem, page);
     }
@@ -276,6 +272,15 @@ void *thread_checkpoint(void *arg) {
 
 void checkpoint() {
     currCheck++;
+
+    int size = memory->size;
+
+    // needs to be done sequentially
+    for (int i = 0; i < size; i++) {
+        auto &page = memory->store[i];
+        docTitlesOutput << page->title << '\n';
+    }
+    totalDocCount += size;
 
     pthread_create(&threads[threadCount++], nullptr, thread_checkpoint, memory);
 
@@ -321,6 +326,8 @@ int main(int argc, char *argv[]) {
         statFile = std::string(argv[3]);
     }
 
+    docTitlesOutput.open(outputDir + "docs");
+
     try {
         processor = new Preprocessor();
         std::ifstream ifs(filePath);
@@ -345,19 +352,13 @@ int main(int argc, char *argv[]) {
             pthread_join(threads[thread], nullptr);
         }
 
-        start_time
-        writeTermMapping(termIDmapping);
-        writeDocMapping(docDetails);
-        end_time
-
         std::ofstream stats(statFile, std::ios_base::out);
         stats << totalTokenCount << '\n';
-        stats << termIDmapping.size() << '\n';
         stats.close();
 
         std::ofstream file_stats(outputDir + "stat.txt", std::ios_base::out);
         file_stats << currCheck << '\n';
-        file_stats << docDetails.size() << '\n';
+        file_stats << totalDocCount << '\n';
         file_stats.close();
 
         ifs.close();
