@@ -9,6 +9,7 @@ enum {
 
 std::vector<std::string> reverseZonal = {"Body", "Infobox", "Category", "Title", "Links", "References"};
 std::vector<std::string> zoneFirstLetter = {"b", "i", "c", "t", "l", "r"};
+std::vector<double> zoneSearchWeights = {0.1, 1, 1, 10, 0.2, 0.2};
 
 typedef std::map<std::string, std::vector<int>> local_data_type;
 

@@ -350,6 +350,16 @@ int main(int argc, char *argv[]) {
         writeDocMapping(docDetails);
         end_time
 
+        std::ofstream stats(statFile, std::ios_base::out);
+        stats << totalTokenCount << '\n';
+        stats << termIDmapping.size() << '\n';
+        stats.close();
+
+        std::ofstream file_stats(outputDir + "stat.txt", std::ios_base::out);
+        file_stats << currCheck << '\n';
+        file_stats << docDetails.size() << '\n';
+        file_stats.close();
+
         ifs.close();
         delete wo;
         delete processor;
@@ -358,15 +368,6 @@ int main(int argc, char *argv[]) {
         free(memory);
 
         std::cout << "Written terms and docs in time " << timer << '\n';
-
-        std::ofstream stats(statFile, std::ios_base::out);
-        stats << totalTokenCount << '\n';
-        stats << termIDmapping.size() << '\n';
-        stats.close();
-
-        std::ofstream file_stats(outputDir + "file_stat.txt", std::ios_base::out);
-        file_stats << currCheck << '\n';
-        file_stats.close();
     } catch (xml::parsing &e) {
         std::cout << e.what() << '\n';
         return 1;

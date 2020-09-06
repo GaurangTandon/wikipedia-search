@@ -17,6 +17,7 @@ constexpr int BLOCK_SIZE = 1;
 typedef std::pair<double, int> score_type; // { score, page-id }
 // least scoring element at the top so it can be popped
 typedef std::priority_queue<score_type, std::vector<score_type>, std::greater<>> results_container;
+int totalDocCount;
 
 Preprocessor *processor;
 std::string outputDir;
@@ -99,11 +100,10 @@ results_container performSearch(const std::string &query, int zone, int maxSize)
             prevFile = fileNum;
         }
 
+        std::vector<score_type> thisTokenScores;
         while (true) {
             int currId = mainBuff->readInt();
             int docCount = mainBuff->readInt();
-            assert(docCount != 0);
-            // TODO: use this instead of docCount
             int actualDocCount = 0; // number of documents with this term in their zone
 
             for (int f = 0; f < docCount; f++) {
@@ -111,17 +111,24 @@ results_container performSearch(const std::string &query, int zone, int maxSize)
                 int termFreqInDoc = zonalBuff->readInt();
 
                 if (currId == id) {
-                    results.push({termFreqInDoc * log10(docCount), docId});
+                    thisTokenScores.emplace_back(termFreqInDoc, docId);
                     actualDocCount += (termFreqInDoc > 0);
-
-                    if (results.size() > maxSize) results.pop();
                 }
             }
 
             if (currId == id) {
+                assert(actualDocCount > 0);
+                double denom = log10((double) totalDocCount / actualDocCount);
+
+                for (auto e : thisTokenScores) {
+                    e.first *= denom;
+                    results.push(e);
+
+                    if (results.size() > maxSize) results.pop();
+                }
+
                 break;
             }
-
         }
     }
 
@@ -131,6 +138,7 @@ results_container performSearch(const std::string &query, int zone, int maxSize)
     delete zonalBuff;
     delete mainBuff;
     delete idBuff;
+    delete tokenIDS;
     return results;
 }
 
@@ -149,24 +157,33 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
     results_container results;
 
+    std::map<int, double> docScores; // maximal size would be ZONE_COUNT * K
+
     // TODO: see if per zone threading is required here
     for (const auto &zone : zonalQueries) {
         if (not zone.empty()) {
-            auto intermediateresults = performSearch(zone, zoneI, K);
+            auto intermediateResults = performSearch(zone, zoneI, K);
 
-            while (not intermediateresults.empty()) {
-                auto res = intermediateresults.top();
-                intermediateresults.pop();
-                results.push(res);
-                if (results.size() > K) results.pop();
+            while (not intermediateResults.empty()) {
+                auto res = intermediateResults.top();
+                intermediateResults.pop();
+                double newScore = res.first * zoneSearchWeights[zoneI];
+                docScores[res.second] += newScore;
             }
         }
 
         zoneI++;
     }
 
+    for (auto &e : docScores) {
+        results.push({e.second, e.first});
+        assert(not std::isnan(e.second));
+        if (results.size() > K) results.pop();
+    }
+
     // sorted from most score->least score
     std::vector<std::pair<int, std::string>> outputResults(K);
+    std::vector<double> scores(K);
     std::vector<std::pair<int, int>> docIdSorted(K); // id, index
 
     if (results.size() < K) {
@@ -175,6 +192,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
     for (int i = K - 1; i >= 0; i--) {
         int docid = results.top().second;
+        scores[i] = results.top().first;
         outputResults[i].first = docid;
         docIdSorted[i] = {docid, i};
         results.pop();
@@ -205,8 +223,11 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
         }
     }
 
+    int i = 0;
     for (auto &result : outputResults) {
+        outputFile << scores[i] << " ";
         outputFile << result.first << "," << result.second << std::endl;
+        i++;
     }
 
     end_time
@@ -219,6 +240,10 @@ int main(int argc, char *argv[]) {
 
     processor = new Preprocessor();
     outputDir = std::string(argv[1]) + "/";
+
+    std::ifstream statFile(outputDir + "stat.txt");
+    statFile >> totalDocCount; // first read is actually file count
+    statFile >> totalDocCount;
 
     char *queryFilePath = argv[2];
 
@@ -234,7 +259,6 @@ int main(int argc, char *argv[]) {
 
     delete processor;
 
-    std::cout << "Total time taken: " << timer << std::endl;
     delete st;
     delete et;
 
