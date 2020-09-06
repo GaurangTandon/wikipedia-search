@@ -5,7 +5,6 @@
 #include<vector>
 #include "../preprocess/preprocess.cpp"
 #include <pthread.h>
-#include <queue>
 #include "../headers/parsing_common.h"
 #include "../file_handling/filehandler.cpp"
 
@@ -361,22 +360,6 @@ int main(int argc, char *argv[]) {
         file_stats << currCheck << '\n';
         file_stats << totalDocCount << '\n';
         file_stats.close();
-
-        typedef std::pair<int, std::string> data_here;
-        std::priority_queue<data_here, std::vector<data_here>, std::greater<>> pq;
-        constexpr int THRESH = 1000;
-
-        for (auto &e : freq) {
-            pq.push({e.second, e.first});
-            if (pq.size() > THRESH) pq.pop();
-        }
-        std::cout << pq.size() << " " << freq.size() << std::endl;
-
-        while (not pq.empty()) {
-            auto &e = pq.top();
-            std::cout << e.first << " " << e.second << std::endl;
-            pq.pop();
-        }
 
         ifs.close();
         delete wo;

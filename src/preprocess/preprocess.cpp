@@ -2,8 +2,6 @@
 
 // ignoring apostrophe for now, valid word is just a-z, $, _, 0-9
 
-std::map<std::string, int> freq;
-
 constexpr inline int FastTrie::char_index(char c) {
     return c - 'a';
 }
@@ -137,8 +135,6 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
             for (int i = 0; i < word_len; i++) {
                 commonWord[i] = text[i + left];
             }
-
-            freq[text.substr(left, word_len)]++;
 
             const auto &str = stemming(commonWord, word_len);
             stemmedTokens.emplace_back(str);
