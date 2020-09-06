@@ -34,7 +34,6 @@ struct Preprocessor {
     pthread_mutex_t stemmer_mutex;
     FastTrie trie;
     sb_symbol *commonWord;
-    std::map<std::string, int> freq;
 
     Preprocessor();
 
