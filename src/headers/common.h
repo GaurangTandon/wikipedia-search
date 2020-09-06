@@ -33,5 +33,22 @@ constexpr int TERMS_PER_SPLIT_FILE = 100000;
 // like internationalization are very long
 // Full stats: http://norvig.com/mayzner.html
 constexpr int MAX_WORD_LEN = 25;
+constexpr int MIN_WORD_LEN = 3;
+
+std::vector<std::string> mostFrequentStems = {"system", "number", "film", "htm", "sup", "main", "british", "york",
+                                              "john", "list", "english", "small", "february", "november", "gov",
+                                              "years", "use", "century", "september", "left", "center", "august",
+                                              "archiveurl", "archivedate", "many", "people", "war", "december",
+                                              "october", "march", "state", "google", "national", "june", "january",
+                                              "live", "april", "july", "pdf", "city", "sub", "dead", "press",
+                                              "location", "uk", "text", "doi", "can", "time", "used", "sfn", "issue",
+                                              "states", "br", "website", "thumb", "two", "university", "de", "united",
+                                              "author", "id", "math", "page", "language", "right", "jpg", "history",
+                                              "ndash", "volume", "work", "access", "align", "style", "american",
+                                              "world", "nbsp", "file", "pages", "one", "may", "status", "html",
+                                              "category", "books", "isbn", "also", "news", "new", "10", "book",
+                                              "accessdate", "journal", "year", "last", "publisher", "first", "org",
+                                              "archive", "com", "https", "www", "http", "name", "date", "cite", "web",
+                                              "title", "url", "ref"};
 
 #endif

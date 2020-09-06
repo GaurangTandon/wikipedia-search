@@ -12,7 +12,8 @@ struct FastTrie {
     static constexpr int root = 0;
 
     std::vector<std::vector<int>> trans;
-    std::vector<bool> isend;
+    int currNode;
+    std::vector<std::string> isend;
 
     static constexpr int char_index(char c);
 
@@ -22,17 +23,22 @@ struct FastTrie {
 
     inline int new_node();
 
-    void insert(std::string &str);
+    void insert(std::string &str, std::string val = "");
 
-    inline int next(int, char);
+    void start(char c);
 
-    inline bool is_end_string(int);
+    inline void next(char);
+
+    inline bool is_end_string();
+
+    inline std::string getVal();
 };
 
 struct Preprocessor {
     sb_stemmer *stemmer;
     pthread_mutex_t stemmer_mutex;
     FastTrie trie;
+    FastTrie stemTrie;
     sb_symbol *commonWord;
 
     Preprocessor();
@@ -41,11 +47,14 @@ struct Preprocessor {
 
     static inline constexpr char lowercase(char c);
 
+    static inline constexpr bool isnum(char c);
+
     static inline constexpr bool validChar(char c);
 
     int processText(data_type &all_data, int docid, int zone, const std::string &text, int start, int end);
 
     static bool fast_equals(const std::string &src, const std::string &target, int pos);
+
     static bool fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos);
 
     std::vector<std::string> getStemmedTokens(const std::string &text, int start, int end);

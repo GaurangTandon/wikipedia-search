@@ -217,21 +217,6 @@ public:
 
 long double timer;
 
-// writes all the pages seen so far into a file
-inline void writeToFile(memory_type *mem) {
-    long double timer;
-    auto *st = new timespec(), *et = new timespec();
-
-    start_time
-
-    writeIndex(mem->alldata, mem->checkpoint_num);
-
-    end_time
-    std::cout << "Written in time " << timer << '\n';
-    delete st;
-    delete et;
-}
-
 inline int get_docid(int threadNum, int docIdx) {
     return threadNum * MX_MEM + docIdx;
 }
@@ -255,7 +240,11 @@ void *thread_checkpoint(void *arg) {
 
     std::cout << "Stemmed " << mem->size << " records with total length " << sum << " in time " << timer << '\n';
 
-    writeToFile(mem);
+    start_time
+    writeIndex(mem->alldata, mem->checkpoint_num);
+    end_time
+
+    std::cout << "Written in time " << timer << '\n';
 
     for (int i = 0; i < mem->size; i++) {
         delete mem->store[i];

@@ -6,9 +6,10 @@ constexpr inline int FastTrie::char_index(char c) {
     return c - 'a';
 }
 
+
 FastTrie::FastTrie() {
     trans = {get_def()};
-    isend = {false};
+    isend = {""};
 }
 
 inline std::vector<int> FastTrie::get_def() {
@@ -18,11 +19,16 @@ inline std::vector<int> FastTrie::get_def() {
 inline int FastTrie::new_node() {
     int i = trans.size();
     trans.push_back(get_def());
-    isend.push_back(false);
+    isend.push_back("");
     return i;
 }
 
-void FastTrie::insert(std::string &str) {
+inline void FastTrie::start(char c) {
+    currNode = FastTrie::root;
+    next(c);
+}
+
+void FastTrie::insert(std::string &str, std::string val) {
     int curr = 0;
 
     for (auto c : str) {
@@ -36,18 +42,21 @@ void FastTrie::insert(std::string &str) {
         curr = next;
     }
 
-    isend[curr] = true;
+    isend[curr] = val;
 }
 
-inline int FastTrie::next(int curr, char move) {
-    if (curr == -1) return curr;
+inline void FastTrie::next(char move) {
+    if (currNode == -1) return;
     int i = char_index(move);
-    if (i >= 0 and i < N) return trans[curr][i];
-    else return -1;
+    if (i >= 0 and i < N) currNode = trans[currNode][i];
 }
 
-inline bool FastTrie::is_end_string(int node) {
-    return node != -1 and isend[node];
+inline bool FastTrie::is_end_string() {
+    return currNode != -1 and isend[currNode].size() > 0;
+}
+
+inline std::string FastTrie::getVal() {
+    return (currNode == -1) ? "" : isend[currNode];
 }
 
 Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
@@ -58,8 +67,8 @@ Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
     assert(stemmer != nullptr);
 
     trie = FastTrie();
+    stemTrie = FastTrie();
     commonWord = (sb_symbol *) malloc(MAX_WORD_LEN * sizeof(sb_symbol));
-//    freq = std::map<std::string, int>();
 
     std::ifstream stopwords_file("preprocess/stopwords_plain.txt", std::ios_base::in);
 
@@ -77,6 +86,10 @@ Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
     }
 
     stopwords_file.close();
+
+    for (auto &word : mostFrequentStems) {
+        stemTrie.insert(word, stemming(reinterpret_cast<const sb_symbol *>(word.c_str()), word.size()));
+    }
 }
 
 Preprocessor::~Preprocessor() {
@@ -99,6 +112,9 @@ inline constexpr char Preprocessor::lowercase(char c) {
     return c;
 }
 
+inline constexpr bool Preprocessor::isnum(char c) {
+    return c <= '9' and c >= '0';
+}
 
 // MUST BE CALLED WITH LOCK HELD
 inline std::string Preprocessor::stemming(const sb_symbol *word, const int len) const {
@@ -121,23 +137,36 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
     for (int left = start; left <= end; left++) {
         if (not validChar(text[left])) continue;
 
-        int curr = trie.next(FastTrie::root, text[left]);
+        trie.start(text[left]);
+        stemTrie.start(text[left]);
+
+        bool hasNumber = isnum(text[left]);
         int right = left;
         while (right < end and validChar(text[right + 1])) {
             right++;
-            curr = trie.next(curr, text[right]);
+            trie.next(text[right]);
+            trie.next(text[right]);
+            hasNumber = hasNumber or isnum(text[right]);
         }
 
         int word_len = right - left + 1;
 
         // >= 2 since a single letter word is 1. too vague 2. gets stemmed into an empty string by stemmer
-        if (word_len <= MAX_WORD_LEN and not trie.is_end_string(curr) and word_len >= 2) {
+        if (word_len <= MAX_WORD_LEN and not trie.is_end_string() and word_len >= MIN_WORD_LEN) {
             for (int i = 0; i < word_len; i++) {
                 commonWord[i] = text[i + left];
             }
 
-            const auto &str = stemming(commonWord, word_len);
-            stemmedTokens.emplace_back(str);
+            auto stemmedVal = stemTrie.getVal();
+
+            if (hasNumber) { // don't stem words containing numbers
+                stemmedTokens.emplace_back(text.substr(left, word_len));
+            } else if (stemmedVal.size() > 0) {
+                stemmedTokens.emplace_back(stemmedVal);
+            } else {
+                const auto &str = stemming(commonWord, word_len);
+                stemmedTokens.emplace_back(str);
+            }
         }
 
         left = right + 1;
