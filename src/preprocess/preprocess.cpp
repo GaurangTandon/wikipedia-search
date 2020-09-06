@@ -101,8 +101,8 @@ inline constexpr bool Preprocessor::validChar(char c) {
     if (c >= 'a' and c <= 'z') return true;
     if (c >= 'A' and c <= 'Z') return true;
     if (c >= '0' and c <= '9') return true;
-    if (c == '_') return true;
-    if (c == '$') return true;
+//    if (c == '_') return true;
+//    if (c == '$') return true;
 
     return false;
 }

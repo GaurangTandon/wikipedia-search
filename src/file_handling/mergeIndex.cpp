@@ -181,7 +181,7 @@ void KWayMerge() {
         }
 
         // if this word is only ever mentioned in 2 (!) documents
-        bool actualWrite = currTokenDocCount > 2;
+        bool actualWrite = currTokenDocCount > 4;
         perTermToWrite[termsSeen] = actualWrite;
 
         for (int i = 0; i < currFileCount; i++) {
