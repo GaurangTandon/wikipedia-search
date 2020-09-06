@@ -169,6 +169,9 @@ void KWayMerge() {
             currFileCount++;
         }
 
+        // if this word is only ever mentioned in 2 (!) documents
+        bool actualWrite = currTokenDocCount > 2;
+
         for (int i = 0; i < currFileCount; i++) {
             int fileN = perTermFileNumbers[termsWritten][i];
 
@@ -180,10 +183,14 @@ void KWayMerge() {
             }
         }
 
-        writeBuffers[ZONE_COUNT + 1]->write(smallestToken, ' ');
-        writeBuffers[ZONE_COUNT + 1]->write(currTokenDocCount, ' ');
+//        if (actualWrite) {
+            writeBuffers[ZONE_COUNT + 1]->write(smallestToken, ' ');
+            writeBuffers[ZONE_COUNT + 1]->write(currTokenDocCount, ' ');
+            termsWritten++;
+//        } else {
 
-        termsWritten++;
+//        }
+
 
         if (termsWritten >= TERMS_PER_SPLIT_FILE) {
             flushBuffers();
