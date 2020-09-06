@@ -13,7 +13,6 @@
 
 #define ceil(x, y) (((x) + (y) - 1) / (y))
 
-
 typedef long double score_value;
 typedef std::pair<score_value, int> score_type; // { score, page-id }
 // least scoring element at the top so it can be popped
@@ -28,6 +27,7 @@ constexpr int BOOST_FACTOR = 10;
 int totalDocCount;
 int uniqueTokensCount;
 std::vector<std::string> milestoneWords;
+std::vector<int> milestoneSizes;
 
 Preprocessor *processor;
 std::string outputDir;
@@ -66,7 +66,8 @@ void extractZonalQueries(const std::string &query) {
 
 inline int getIndex(const std::string &token) {
     auto lowIt = std::upper_bound(milestoneWords.begin(), milestoneWords.end(), token) - 1;
-    return lowIt - milestoneWords.begin();
+    int idx = lowIt - milestoneWords.begin();
+    return idx;
 }
 
 // PRECONDITION: query is not empty
@@ -82,7 +83,7 @@ void *performSearch(void *dataP) {
 
         int prevFile = -1;
 
-        ReadBuffer *mainBuff, *idBuff, *zonalBuff;
+        std::ifstream mainBuff, idBuff, zonalBuff;
         data.results = new results_container();
 
         int readCount, readLim;
@@ -92,29 +93,32 @@ void *performSearch(void *dataP) {
 
             if (prevFile != fileNum) {
                 auto str = std::to_string(fileNum);
-                mainBuff = new ReadBuffer(outputDir + "mimain" + str);
-                idBuff = new ReadBuffer(outputDir + "miids" + str);
-                zonalBuff = new ReadBuffer(outputDir + "mi" + zoneFirstLetter[data.zone] + str);
+
+                mainBuff = std::ifstream(outputDir + "mimain" + str);
+                idBuff = std::ifstream(outputDir + "miids" + str);
+                zonalBuff = std::ifstream(outputDir + "mi" + zoneFirstLetter[data.zone] + str);
                 prevFile = fileNum;
 
-                if (fileNum == milestoneWords.size() - 1) {
-                    readLim = uniqueTokensCount % TERMS_PER_SPLIT_FILE;
-                } else readLim = TERMS_PER_SPLIT_FILE;
+                readLim = milestoneSizes[fileNum];
 
                 readCount = 0;
             }
 
             std::vector<score_type> thisTokenScores;
             while (readCount < readLim) {
-                auto currToken = mainBuff->readString();
-                int docCount = mainBuff->readInt();
+                std::string currToken;
+                mainBuff >> currToken;
+                int docCount;
+                mainBuff >> docCount;
                 // can store this variable in the file itself
                 int actualDocCount = 0; // number of documents with this term in their zone
                 const bool isCurrTokenReq = currToken == token;
 
                 for (int f = 0; f < docCount; f++) {
-                    int docId = idBuff->readInt();
-                    int termFreqInDoc = zonalBuff->readInt();
+                    int docId;
+                    idBuff >> docId;
+                    int termFreqInDoc;
+                    zonalBuff >> termFreqInDoc;
 
                     if (isCurrTokenReq) {
                         auto value = sublinear_scaling(termFreqInDoc);
@@ -140,13 +144,6 @@ void *performSearch(void *dataP) {
                 readCount++;
             }
         }
-
-        zonalBuff->close();
-        mainBuff->close();
-        idBuff->close();
-        delete zonalBuff;
-        delete mainBuff;
-        delete idBuff;
     }
 
     return nullptr;
@@ -280,10 +277,13 @@ int main(int argc, char *argv[]) {
     std::ifstream milestonesFile(outputDir + "milestone.txt");
     int mileCount = ceil(uniqueTokensCount, TERMS_PER_SPLIT_FILE);
     milestoneWords.reserve(mileCount);
+    milestoneSizes.reserve(mileCount);
     for (int i = 0; i < mileCount; i++) {
         std::string str;
-        milestonesFile >> str;
+        int terms;
+        milestonesFile >> str >> terms;
         milestoneWords.push_back(str);
+        milestoneSizes.push_back(terms);
     }
 
     zonePrefixMarkers['t'] = TITLE_ZONE;
