@@ -132,7 +132,7 @@ struct ReadBuffer {
             exit(1);
         }
 
-        buf = (char *) malloc(sizeof(char));
+        buf = (char *) malloc(sizeof(char) * (MAX_WORD_LEN + 2));
     }
 
     ~ReadBuffer() {
@@ -164,6 +164,18 @@ struct ReadBuffer {
         } while (true);
 
         return num;
+    }
+
+    inline std::string readString(char delim = ' ') {
+        std::string str;
+
+        do {
+            const char c = readChar();
+            if (c == delim or c == 0) break;
+            str += c;
+        } while (true);
+
+        return str;
     }
 
     inline void ignoreTillDelim(char delim = '\n') {

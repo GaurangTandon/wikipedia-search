@@ -12,12 +12,13 @@
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/zip_operations.cpp"
 
-constexpr int BLOCK_SIZE = 1;
-#define ceil(x, y) (x + y - 1) / y
+#define ceil(x, y) (((x) + (y) - 1) / (y))
+
 typedef std::pair<double, int> score_type; // { score, page-id }
 // least scoring element at the top so it can be popped
 typedef std::priority_queue<score_type, std::vector<score_type>, std::greater<>> results_container;
 int totalDocCount;
+std::vector<std::string> milestoneWords;
 
 Preprocessor *processor;
 std::string outputDir;
@@ -52,46 +53,20 @@ std::vector<std::string> extractZonalQueries(const std::string &query) {
     return zonalQueries;
 }
 
-// PRECONDITION: tokens is not empty
-std::set<int> *getTokenIDs(std::vector<std::string> &tokens) {
-    auto idSet = new std::set<int>();
-    std::sort(tokens.begin(), tokens.end());
-    int currToken = 0;
-
-    std::ifstream termIDsFile(outputDir + "terms", std::ios_base::in);
-
-    int termCount;
-    termIDsFile >> termCount;
-
-    for (int i = 0; i < termCount; i++) {
-        std::string token;
-        termIDsFile >> token;
-        int id;
-        termIDsFile >> id;
-
-        int res = std::strcmp(token.c_str(), tokens[currToken].c_str());
-        if (res >= 0) {
-            if (res == 0) {
-                idSet->insert(id);
-            }
-            currToken++;
-            if (currToken == tokens.size()) break;
-        }
-    }
-
-    return idSet;
+inline int getIndex(const std::string &token) {
+    return std::lower_bound(milestoneWords.begin(), milestoneWords.end(), token) - milestoneWords.begin();
 }
 
 // PRECONDITION: query is not empty
 results_container performSearch(const std::string &query, int zone, int maxSize) {
     auto tokens = processor->getStemmedTokens(query, 0, query.size() - 1);
-    auto tokenIDS = getTokenIDs(tokens);
     int prevFile = -1;
     ReadBuffer *mainBuff, *idBuff, *zonalBuff;
     results_container results;
 
-    for (auto id : *tokenIDS) {
-        int fileNum = id / TERMS_PER_SPLIT_FILE;
+    for (const auto &token : tokens) {
+        int fileNum = getIndex(token);
+
         if (prevFile != fileNum) {
             auto str = std::to_string(fileNum);
             mainBuff = new ReadBuffer(outputDir + "mimain" + str);
@@ -102,21 +77,22 @@ results_container performSearch(const std::string &query, int zone, int maxSize)
 
         std::vector<score_type> thisTokenScores;
         while (true) {
-            int currId = mainBuff->readInt();
+            auto currToken = mainBuff->readString();
             int docCount = mainBuff->readInt();
             int actualDocCount = 0; // number of documents with this term in their zone
+            const bool isCurrTokenReq = currToken == token;
 
             for (int f = 0; f < docCount; f++) {
                 int docId = idBuff->readInt();
                 int termFreqInDoc = zonalBuff->readInt();
 
-                if (currId == id) {
+                if (isCurrTokenReq) {
                     thisTokenScores.emplace_back(termFreqInDoc, docId);
                     actualDocCount += (termFreqInDoc > 0);
                 }
             }
 
-            if (currId == id) {
+            if (isCurrTokenReq) {
                 assert(actualDocCount > 0);
                 double denom = log10((double) totalDocCount / actualDocCount);
 
@@ -138,7 +114,6 @@ results_container performSearch(const std::string &query, int zone, int maxSize)
     delete zonalBuff;
     delete mainBuff;
     delete idBuff;
-    delete tokenIDS;
     return results;
 }
 
@@ -244,6 +219,17 @@ int main(int argc, char *argv[]) {
     std::ifstream statFile(outputDir + "stat.txt");
     statFile >> totalDocCount; // first read is actually file count
     statFile >> totalDocCount;
+    int uniqueTokensCount;
+    statFile >> uniqueTokensCount;
+
+    std::ifstream milestonesFile(outputDir + "milestone.txt");
+    int mileCount = ceil(uniqueTokensCount, TERMS_PER_SPLIT_FILE);
+    milestoneWords.reserve(mileCount);
+    for (int i = 0; i < mileCount; i++) {
+        std::string str;
+        milestonesFile >> str;
+        milestoneWords.push_back(str);
+    }
 
     char *queryFilePath = argv[2];
 

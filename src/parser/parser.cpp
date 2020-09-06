@@ -320,11 +320,10 @@ int main(int argc, char *argv[]) {
     std::cout.tie(nullptr);
 
     std::string statFile;
-    if (argc == 4) {
-        filePath = std::string(argv[1]);
-        setOutputDir(std::string(argv[2]));
-        statFile = std::string(argv[3]);
-    }
+    assert(argc == 4);
+    filePath = std::string(argv[1]);
+    setOutputDir(std::string(argv[2]));
+    statFile = std::string(argv[3]);
 
     docTitlesOutput.open(outputDir + "docs");
 

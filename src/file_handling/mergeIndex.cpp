@@ -3,9 +3,8 @@
 #include <vector>
 #include <ctime>
 #include <queue>
+#include <cassert>
 #include "../headers/common.h"
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
 
 std::string outputDir;
 int fileCount;
@@ -13,7 +12,11 @@ int fileCount;
 ReadBuffer ***readBuffers;
 WriteBuffer **writeBuffers;
 
-// pointer dereference costs very little: // https://stackoverflow.com/questions/1910712/ // https://stackoverflow.com/questions/431469
+std::ofstream milestoneWords;
+std::ofstream statFile;
+std::ofstream personalStatFile;
+
+// pointer dereference costs very little: https://stackoverflow.com/questions/1910712/ https://stackoverflow.com/questions/431469
 typedef struct readWriteType {
     int zone;
     int termCount;
@@ -53,10 +56,13 @@ void KWayMerge() {
 
     start_time
 
+    std::string latestToken;
     std::vector<int> pointers(fileCount, 0);
     std::vector<int> totalSizes(fileCount, 0);
-    // { token-id, fileCount }
-    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> currTokenId;
+    // { token-str, fileCount }
+    typedef std::pair<std::string, int> nextTokenType;
+    std::priority_queue<nextTokenType, std::vector<nextTokenType>, std::greater<>> currTokenId;
+
     readBuffers = (ReadBuffer ***) malloc(sizeof(ReadBuffer *) * (ZONE_COUNT + 2));
     for (int i = 0; i <= ZONE_COUNT + 1; i++) {
         readBuffers[i] = (ReadBuffer **) malloc(sizeof(ReadBuffer *) * fileCount);
@@ -72,8 +78,8 @@ void KWayMerge() {
         auto &tempBuff = readBuffers[ZONE_COUNT + 1][i] = new ReadBuffer(outputDir + "i" + iStr);
 
         totalSizes[i] = tempBuff->readInt('\n');
-        int tokenid = tempBuff->readInt();
-        currTokenId.emplace(tokenid, i);
+        auto token = tempBuff->readString();
+        currTokenId.emplace(token, i);
     }
 
     // as ou see at least as many docs in the current merged index,
@@ -98,6 +104,7 @@ void KWayMerge() {
 
     auto initializeBuffer = [&]() {
         termsWritten = 0;
+        latestToken = "";
 
         auto str = std::to_string(currentMergedCount);
         for (int i = 0; i < ZONE_COUNT; i++) {
@@ -132,21 +139,28 @@ void KWayMerge() {
         for (int i = 0; i <= ZONE_COUNT; i++) {
             pthread_join(threads[i], nullptr);
         }
+        milestoneWords << latestToken << '\n';
+
         closeBuffers();
 
         if (reInit)
             initializeBuffer();
+        else {
+            statFile << totalTermsWritten << std::endl;
+            personalStatFile << totalTermsWritten << std::endl;
+        }
     };
 
     initializeBuffer();
 
     while (not currTokenId.empty()) {
-        int smallestTermId = currTokenId.top().first;
+        auto smallestToken = currTokenId.top().first;
+        if (latestToken.empty()) latestToken = smallestToken;
 
         int currTokenDocCount = 0;
         auto &currFileCount = perTermFileCount[termsWritten] = 0;
 
-        while (not currTokenId.empty() and currTokenId.top().first == smallestTermId) {
+        while (not currTokenId.empty() and currTokenId.top().first == smallestToken) {
             int fileN = perTermFileNumbers[termsWritten][currFileCount] = currTokenId.top().second;
             int docCountForThisFile = readBuffers[ZONE_COUNT + 1][fileN]->readInt();
             perTermDocCount[termsWritten][currFileCount] = docCountForThisFile;
@@ -161,12 +175,12 @@ void KWayMerge() {
             totalSizes[fileN]--;
 
             if (totalSizes[fileN] > 0) {
-                int tokenid = readBuffers[ZONE_COUNT + 1][fileN]->readInt();
-                currTokenId.emplace(tokenid, fileN);
+                auto token = readBuffers[ZONE_COUNT + 1][fileN]->readString();
+                currTokenId.emplace(token, fileN);
             }
         }
 
-        writeBuffers[ZONE_COUNT + 1]->write(smallestTermId, ' ');
+        writeBuffers[ZONE_COUNT + 1]->write(smallestToken, ' ');
         writeBuffers[ZONE_COUNT + 1]->write(currTokenDocCount, ' ');
 
         termsWritten++;
@@ -200,16 +214,23 @@ void KWayMerge() {
     end_time
     std::cout << "Time taken to merge indexes and create split sorted files " << timer << std::endl;
 
-    delete st; delete et;
+    delete st;
+    delete et;
 }
 
 int main(int argc, char *argv[]) {
-    if (argc == 2) {
-        outputDir = std::string(std::string(argv[1])) + "/";
-    }
+    std::string statFileName;
+
+    assert(argc == 3);
+    outputDir = std::string(argv[1]) + "/";
+    statFileName = std::string(argv[2]);
 
     std::ifstream countFile(outputDir + "file_stat.txt");
     countFile >> fileCount;
+
+    milestoneWords.open(outputDir + "milestone.txt");
+    statFile.open(statFileName, std::ios_base::out | std::ios_base::app);
+    personalStatFile.open(outputDir + "stat.txt", std::ios_base::out | std::ios_base::app);
 
     KWayMerge();
 
