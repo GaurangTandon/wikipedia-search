@@ -8,12 +8,15 @@
 #include <algorithm>
 #include <cstring>
 #include <queue>
+#include <cmath>
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/zip_operations.cpp"
 
 constexpr int BLOCK_SIZE = 1;
 #define ceil(x, y) (x + y - 1) / y
 typedef std::pair<double, int> score_type; // { score, page-id }
+// least scoring element at the top so it can be popped
+typedef std::priority_queue<score_type, std::vector<score_type>, std::greater<>> results_container;
 
 Preprocessor *processor;
 std::string outputDir;
@@ -79,11 +82,56 @@ std::set<int> *getTokenIDs(std::vector<std::string> &tokens) {
 }
 
 // PRECONDITION: query is not empty
-std::vector<score_type> performSearch(const std::string &query, int zone) {
+results_container performSearch(const std::string &query, int zone, int maxSize) {
     auto tokens = processor->getStemmedTokens(query, 0, query.size() - 1);
     auto tokenIDS = getTokenIDs(tokens);
+    int prevFile = -1;
+    ReadBuffer *mainBuff, *idBuff, *zonalBuff;
+    results_container results;
 
+    for (auto id : *tokenIDS) {
+        int fileNum = id / TERMS_PER_SPLIT_FILE;
+        if (prevFile != fileNum) {
+            auto str = std::to_string(fileNum);
+            mainBuff = new ReadBuffer(outputDir + "mimain" + str);
+            idBuff = new ReadBuffer(outputDir + "miids" + str);
+            zonalBuff = new ReadBuffer(outputDir + "mi" + zoneFirstLetter[zone] + str);
+            prevFile = fileNum;
+        }
 
+        while (true) {
+            int currId = mainBuff->readInt();
+            int docCount = mainBuff->readInt();
+            assert(docCount != 0);
+            // TODO: use this instead of docCount
+            int actualDocCount = 0; // number of documents with this term in their zone
+
+            for (int f = 0; f < docCount; f++) {
+                int docId = idBuff->readInt();
+                int termFreqInDoc = zonalBuff->readInt();
+
+                if (currId == id) {
+                    results.push({termFreqInDoc * log10(docCount), docId});
+                    actualDocCount += (termFreqInDoc > 0);
+
+                    if (results.size() > maxSize) results.pop();
+                }
+            }
+
+            if (currId == id) {
+                break;
+            }
+
+        }
+    }
+
+    zonalBuff->close();
+    mainBuff->close();
+    idBuff->close();
+    delete zonalBuff;
+    delete mainBuff;
+    delete idBuff;
+    return results;
 }
 
 auto st = new timespec(), et = new timespec();
@@ -99,24 +147,26 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     auto zonalQueries = extractZonalQueries(query);
     int zoneI = 0;
 
-    // least scoring element at the top so it can be popped
-    std::priority_queue<score_type, std::vector<score_type>, std::greater<>> results;
+    results_container results;
 
     // TODO: see if per zone threading is required here
     for (const auto &zone : zonalQueries) {
         if (not zone.empty()) {
-            const auto intermediateresults = performSearch(zone, zoneI);
+            auto intermediateresults = performSearch(zone, zoneI, K);
 
-            for (auto &res : intermediateresults) results.push(res);
-
-            while (results.size() > K) results.pop();
+            while (not intermediateresults.empty()) {
+                auto res = intermediateresults.top();
+                intermediateresults.pop();
+                results.push(res);
+                if (results.size() > K) results.pop();
+            }
         }
 
         zoneI++;
     }
 
     // sorted from most score->least score
-    std::vector<std::pair<int, std::string>> outputResults;
+    std::vector<std::pair<int, std::string>> outputResults(K);
     std::vector<std::pair<int, int>> docIdSorted(K); // id, index
 
     if (results.size() < K) {
@@ -144,7 +194,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
         // TODO: can optimize using lseek, see if necessary
         int currI = 0;
-        for (int id = 1; id <= docCount; id++) {
+        for (int id = 0; id < docCount; id++) {
             if (id < docIdSorted[currI].first) ignoreLine
             else {
                 int idx = docIdSorted[currI].second;
@@ -156,7 +206,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     }
 
     for (auto &result : outputResults) {
-        std::cout << result.first << "," << result.second << std::endl;
+        outputFile << result.first << "," << result.second << std::endl;
     }
 
     end_time
@@ -169,8 +219,6 @@ int main(int argc, char *argv[]) {
 
     processor = new Preprocessor();
     outputDir = std::string(argv[1]) + "/";
-
-    readDocIds();
 
     char *queryFilePath = argv[2];
 
@@ -186,7 +234,7 @@ int main(int argc, char *argv[]) {
 
     delete processor;
 
-    std::cout << "Search finished in time " << timer << std::endl;
+    std::cout << "Total time taken: " << timer << std::endl;
     delete st;
     delete et;
 

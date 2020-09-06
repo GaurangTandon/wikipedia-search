@@ -34,6 +34,10 @@ If you do not specify a category, it is assumed to be the body by default.
 
 On the 680MB dump, this takes roughly 60secs to do the complete indexing, and around 6secs per search query. The complete inverted index size is roughly 67M.
 
+## Information
+
+Document id starts from zero. Every thread gets assigned `[BLOCK * tI, (BLOCK + 1) * tI]` document ids, where tI is the thread index (starting from zero).
+
 ## Dependencies
 
 1. `bzip2`: v1.0.8 ([link](https://www.sourceware.org/bzip2))

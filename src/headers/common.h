@@ -7,25 +7,11 @@ enum {
     TEXT_ZONE, INFOBOX_ZONE, CATEGORY_ZONE, TITLE_ZONE, EXTERNAL_LINKS_ZONE, REFERENCES_ZONE, ZONE_COUNT
 };
 
+std::vector<std::string> reverseZonal = {"Body", "Infobox", "Category", "Title", "Links", "References"};
+std::vector<std::string> zoneFirstLetter = {"b", "i", "c", "t", "l", "r"};
+
 typedef std::map<std::string, std::vector<int>> local_data_type;
 
-std::unordered_map<int, std::string> reverseZonal = {
-        {TEXT_ZONE,           "Body"},
-        {INFOBOX_ZONE,        "Infobox"},
-        {CATEGORY_ZONE,       "Category"},
-        {TITLE_ZONE,          "Title"},
-        {EXTERNAL_LINKS_ZONE, "Links"},
-        {REFERENCES_ZONE,     "References"}
-};
-
-std::unordered_map<int, std::string> zoneFirstLetter = {
-        {TEXT_ZONE,           "b"},
-        {INFOBOX_ZONE,        "i"},
-        {CATEGORY_ZONE,       "c"},
-        {TITLE_ZONE,          "t"},
-        {EXTERNAL_LINKS_ZONE, "l"},
-        {REFERENCES_ZONE,     "r"}
-};
 
 // data[term_name] = postings list; list[i] = { doc_id, { freq_information }};
 typedef std::vector<std::pair<int, std::vector<int>>> postings_list_type;
@@ -39,4 +25,4 @@ typedef std::map<std::string, postings_list_type> data_type;
     clock_gettime(CLOCK_MONOTONIC, et); \
     timer = calc_time(st, et);
 
-constexpr int TERMS_PER_SPLIT_FILE = 10000;
+constexpr int TERMS_PER_SPLIT_FILE = 100000;

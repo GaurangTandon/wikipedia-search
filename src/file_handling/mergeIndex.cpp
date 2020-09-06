@@ -108,8 +108,6 @@ void KWayMerge() {
         currentMergedCount++;
     };
 
-    std::ofstream statFile("last_file_terms.txt", std::ios_base::out);
-
     int totalTermsWritten = 0;
 
     auto closeBuffers = [&]() {
@@ -138,7 +136,6 @@ void KWayMerge() {
 
         if (reInit)
             initializeBuffer();
-        else statFile << termsWritten;
     };
 
     initializeBuffer();
@@ -202,6 +199,8 @@ void KWayMerge() {
 
     end_time
     std::cout << "Time taken to merge indexes and create split sorted files " << timer << std::endl;
+
+    delete st; delete et;
 }
 
 int main(int argc, char *argv[]) {
