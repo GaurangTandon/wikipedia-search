@@ -4,7 +4,6 @@
 #include <ctime>
 #include <queue>
 #include <cassert>
-#include "../headers/common.h"
 
 std::string outputDir;
 int fileCount;
@@ -184,9 +183,9 @@ void KWayMerge() {
         }
 
 //        if (actualWrite) {
-            writeBuffers[ZONE_COUNT + 1]->write(smallestToken, ' ');
-            writeBuffers[ZONE_COUNT + 1]->write(currTokenDocCount, ' ');
-            termsWritten++;
+        writeBuffers[ZONE_COUNT + 1]->write(smallestToken, ' ');
+        writeBuffers[ZONE_COUNT + 1]->write(currTokenDocCount, ' ');
+        termsWritten++;
 //        } else {
 
 //        }

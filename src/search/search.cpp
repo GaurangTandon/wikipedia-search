@@ -71,13 +71,11 @@ void *performSearch(void *dataP) {
     int prevFile = -1;
     ReadBuffer *mainBuff, *idBuff, *zonalBuff;
     data.results = new results_container();
+    int readCount;
+    int readLim;
 
     for (const auto &token : tokens) {
         int fileNum = getIndex(token);
-        int lim = TERMS_PER_SPLIT_FILE;
-        if (fileNum == milestoneWords.size() - 1) {
-            lim = uniqueTokensCount % TERMS_PER_SPLIT_FILE;
-        }
 
         if (prevFile != fileNum) {
             auto str = std::to_string(fileNum);
@@ -85,10 +83,16 @@ void *performSearch(void *dataP) {
             idBuff = new ReadBuffer(outputDir + "miids" + str);
             zonalBuff = new ReadBuffer(outputDir + "mi" + zoneFirstLetter[data.zone] + str);
             prevFile = fileNum;
+
+            if (fileNum == milestoneWords.size() - 1) {
+                readLim = uniqueTokensCount % TERMS_PER_SPLIT_FILE;
+            } else readLim = TERMS_PER_SPLIT_FILE;
+
+            readCount = 0;
         }
 
         std::vector<score_type> thisTokenScores;
-        for (int _ = 0; _ < lim; _++) {
+        while (readCount < readLim) {
             auto currToken = mainBuff->readString();
             int docCount = mainBuff->readInt();
             int actualDocCount = 0; // number of documents with this term in their zone
@@ -117,6 +121,8 @@ void *performSearch(void *dataP) {
 
                 break;
             }
+
+            readCount++;
         }
     }
 
@@ -209,8 +215,6 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
         std::ifstream docTitleFile(outputDir + "docs", std::ios_base::in);
 
 #define ignoreLine docTitleFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-        ignoreLine
 
         // TODO: can optimize using lseek, see if necessary
         int currI = 0;
