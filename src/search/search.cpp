@@ -7,16 +7,16 @@
 #include <ctime>
 #include <algorithm>
 #include <cstring>
+#include <queue>
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/zip_operations.cpp"
 
 constexpr int BLOCK_SIZE = 1;
 #define ceil(x, y) (x + y - 1) / y
+typedef std::pair<double, int> score_type; // { score, page-id }
 
 Preprocessor *processor;
 std::string outputDir;
-std::map<int, std::string> docIdMap;
-int fileCount;
 
 std::vector<std::string> extractZonalQueries(const std::string &query) {
     std::vector<int> zones(255, -1);
@@ -30,7 +30,7 @@ std::vector<std::string> extractZonalQueries(const std::string &query) {
     constexpr char QUERY_SEP = ':';
 
     std::vector<std::string> zonalQueries(ZONE_COUNT);
-    int currZone = TEXT_ZONE;
+    int currZone = -1;
 
     for (int i = 0; i < query.size(); i++) {
         auto c = query[i];
@@ -41,91 +41,11 @@ std::vector<std::string> extractZonalQueries(const std::string &query) {
             continue;
         }
 
-        zonalQueries[currZone] += query[i];
+        if (currZone != -1) zonalQueries[currZone] += c;
+        else for (int zoneI = 0; zoneI < ZONE_COUNT; zoneI++) zonalQueries[zoneI] += c;
     }
-
-
-    std::cout << "Extracted queries" << '\n';
-    for (int i = 0; i < ZONE_COUNT; i++) {
-        std::cout << "Zone " << reverseZonal[i] << ": " << zonalQueries[i] << std::endl;
-    }
-    std::cout << "----\n";
 
     return zonalQueries;
-}
-
-std::vector<std::vector<std::string>> searchResults(ZONE_COUNT);
-
-typedef std::vector<std::vector<int>> shared_mem_type;
-typedef struct query_type {
-    int zone;
-    int block;
-    const std::set<int> *tokens;
-    shared_mem_type *sharedMem;
-} query_type;
-
-void *searchFileThreaded(void *arg) {
-    const auto *query = (query_type *) arg;
-    if (query->tokens->empty()) {
-        return nullptr;
-    }
-    const auto token_begin = query->tokens->begin();
-    const auto token_end = query->tokens->end();
-    std::set<int> docids;
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
-
-    for (int currFile = query->block * BLOCK_SIZE, lim = min(fileCount, currFile + BLOCK_SIZE);
-         currFile < lim; currFile++) {
-        std::string filepath = outputDir + "index" + std::to_string(currFile);
-        auto buffer = ReadBuffer(filepath);
-
-        auto tokenIT = token_begin;
-        auto currTokenId = *tokenIT;
-
-        int count = buffer.readInt('\n');
-
-        for (int i = 0; i < count; i++) {
-            int id = buffer.readInt();
-
-            if (id != currTokenId) {
-                // SEARCH WIL
-                if (i < count - 1) buffer.ignoreTillDelim();
-                continue;
-            }
-
-            int docCount = buffer.readInt();
-            for (int j = 0; j < docCount; j++) {
-                int docid = buffer.readInt();
-
-                std::vector<int> freq(ZONE_COUNT, 0);
-                int k = 0;
-
-                for (int zoneI = 0; zoneI < ZONE_COUNT; zoneI++) {
-                    int val;
-                    if (zoneI == ZONE_COUNT - 1) val = buffer.readInt(';');
-                    else val = buffer.readInt(',');
-                    freq[k++] = val;
-                }
-
-                if (freq[query->zone]) docids.insert(docid);
-            }
-
-            assert(buffer.readChar() == '\n');
-
-            tokenIT++;
-            if (tokenIT == token_end) break;
-            currTokenId = *tokenIT;
-        }
-
-        buffer.close();
-    }
-
-    auto &vec = (*(query->sharedMem))[query->block];
-    vec.insert(vec.end(), docids.begin(), docids.end());
-
-
-    return nullptr;
 }
 
 // PRECONDITION: tokens is not empty
@@ -159,55 +79,11 @@ std::set<int> *getTokenIDs(std::vector<std::string> &tokens) {
 }
 
 // PRECONDITION: query is not empty
-std::set<int> performSearch(const std::string &query, int zone) {
-    int threadCount = ceil(fileCount, BLOCK_SIZE);
-    auto shared_data = new shared_mem_type(threadCount);
-
+std::vector<score_type> performSearch(const std::string &query, int zone) {
     auto tokens = processor->getStemmedTokens(query, 0, query.size() - 1);
-
     auto tokenIDS = getTokenIDs(tokens);
 
-    std::vector<pthread_t> threads(threadCount);
-    std::vector<query_type *> query_data_vec(threadCount);
 
-    for (int i = 0; i < threadCount; i++) {
-        auto queryData = new query_type();
-        queryData->tokens = tokenIDS;
-        queryData->sharedMem = shared_data;
-        queryData->zone = zone;
-        queryData->block = i;
-        query_data_vec[i] = queryData;
-        pthread_create(&threads[i], nullptr, searchFileThreaded, queryData);
-    }
-
-    for (int i = 0; i < threadCount; i++) {
-        pthread_join(threads[i], nullptr);
-        delete query_data_vec[i];
-    }
-
-    std::set<int> docIds;
-    const auto shared_data_deref = *shared_data;
-    for (const auto &data : shared_data_deref) {
-        if (data.empty()) continue;
-        docIds.insert(data.begin(), data.end());
-    }
-
-    delete tokenIDS;
-    delete shared_data;
-
-    return docIds;
-}
-
-
-void readDocIds() {
-    std::ifstream docIDs(outputDir + "docs", std::ios_base::in);
-    int docCount;
-    docIDs >> docCount;
-    docIDs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-    for (int id = 1; id <= docCount; id++) {
-        getline(docIDs, docIdMap[id]);
-    }
 }
 
 auto st = new timespec(), et = new timespec();
@@ -223,23 +99,69 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     auto zonalQueries = extractZonalQueries(query);
     int zoneI = 0;
 
+    // least scoring element at the top so it can be popped
+    std::priority_queue<score_type, std::vector<score_type>, std::greater<>> results;
+
+    // TODO: see if per zone threading is required here
     for (const auto &zone : zonalQueries) {
         if (not zone.empty()) {
-            const auto docIds = performSearch(zone, zoneI);
-            for (const auto id : docIds) {
-                const auto &str = docIdMap[id];
-                assert(not str.empty());
-                searchResults[zoneI].push_back(str);
-            }
+            const auto intermediateresults = performSearch(zone, zoneI);
+
+            for (auto &res : intermediateresults) results.push(res);
+
+            while (results.size() > K) results.pop();
         }
+
         zoneI++;
     }
 
-    zoneI = 0;
+    // sorted from most score->least score
+    std::vector<std::pair<int, std::string>> outputResults;
+    std::vector<std::pair<int, int>> docIdSorted(K); // id, index
+
+    if (results.size() < K) {
+        // TODO: append random results
+    }
+
+    for (int i = K - 1; i >= 0; i--) {
+        int docid = results.top().second;
+        outputResults[i].first = docid;
+        docIdSorted[i] = {docid, i};
+        results.pop();
+    }
+
+    sort(docIdSorted.begin(), docIdSorted.end());
+
+    // Get string representation of title, and print it
+    {
+        std::ifstream docIDs(outputDir + "docs", std::ios_base::in);
+        int docCount;
+        docIDs >> docCount;
+
+#define ignoreLine docIDs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+        ignoreLine
+
+        // TODO: can optimize using lseek, see if necessary
+        int currI = 0;
+        for (int id = 1; id <= docCount; id++) {
+            if (id < docIdSorted[currI].first) ignoreLine
+            else {
+                int idx = docIdSorted[currI].second;
+                getline(docIDs, outputResults[idx].second);
+                currI++;
+                if (currI == K) break;
+            }
+        }
+    }
+
+    for (auto &result : outputResults) {
+        std::cout << result.first << "," << result.second << std::endl;
+    }
 
     end_time
 
-    outputFile << timer << " " << (timer / K) << "\n\n";
+    outputFile << timer << ", " << (timer / K) << "\n\n";
 }
 
 int main(int argc, char *argv[]) {
@@ -247,10 +169,6 @@ int main(int argc, char *argv[]) {
 
     processor = new Preprocessor();
     outputDir = std::string(argv[1]) + "/";
-
-    std::ifstream fileStats(outputDir + "file_stat.txt", std::ios_base::in);
-    fileStats >> fileCount;
-    assert(fileCount > 0 and fileCount < 100);
 
     readDocIds();
 
