@@ -8,7 +8,7 @@
 std::string outputDir;
 int fileCount;
 
-ReadBuffer ***readBuffers;
+std::ifstream ***readBuffers;
 WriteBuffer **writeBuffers;
 
 std::ofstream milestoneWords;
@@ -37,9 +37,11 @@ void *readAndWriteSequential(void *arg) {
         for (int i = 0; i < lim; i++) {
             const auto &count = data->docCount[termI][i];
             const auto &fileN = data->fileNumbers[termI][i];
+            auto &buff = *buffers[fileN];
 
             for (int j = 0; j < count; j++) {
-                int val = buffers[fileN]->readInt();
+                int val;
+                buff >> val;
                 writeBuff->write(val, ' ');
             }
         }
@@ -62,22 +64,24 @@ void KWayMerge() {
     typedef std::pair<std::string, int> nextTokenType;
     std::priority_queue<nextTokenType, std::vector<nextTokenType>, std::greater<>> currTokenId;
 
-    readBuffers = (ReadBuffer ***) malloc(sizeof(ReadBuffer *) * (ZONE_COUNT + 2));
+    readBuffers = (std::ifstream ***) malloc(sizeof(std::ifstream **) * (ZONE_COUNT + 2));
     for (int i = 0; i <= ZONE_COUNT + 1; i++) {
-        readBuffers[i] = (ReadBuffer **) malloc(sizeof(ReadBuffer *) * fileCount);
+        readBuffers[i] = (std::ifstream **) malloc(sizeof(std::ifstream *) * fileCount);
     }
 
     for (auto i = 0; i < fileCount; i++) {
         auto iStr = std::to_string(i);
 
         for (int j = 0; j < ZONE_COUNT; j++) {
-            readBuffers[j][i] = new ReadBuffer(outputDir + "i" + zoneFirstLetter[j] + iStr);
+            readBuffers[j][i] = new std::ifstream(outputDir + "i" + zoneFirstLetter[j] + iStr);
         }
-        readBuffers[ZONE_COUNT][i] = new ReadBuffer(outputDir + "iid" + iStr);
-        auto &tempBuff = readBuffers[ZONE_COUNT + 1][i] = new ReadBuffer(outputDir + "i" + iStr);
+        readBuffers[ZONE_COUNT][i] = new std::ifstream(outputDir + "iid" + iStr);
+        readBuffers[ZONE_COUNT + 1][i] = new std::ifstream(outputDir + "i" + iStr);
+        auto &tempBuff = *readBuffers[ZONE_COUNT + 1][i];
 
-        totalSizes[i] = tempBuff->readInt('\n');
-        auto token = tempBuff->readString();
+        tempBuff >> totalSizes[i];
+        std::string token;
+        tempBuff >> token;
         currTokenId.emplace(token, i);
     }
 
@@ -161,7 +165,8 @@ void KWayMerge() {
 
         while (not currTokenId.empty() and currTokenId.top().first == smallestToken) {
             int fileN = perTermFileNumbers[termsWritten][currFileCount] = currTokenId.top().second;
-            int docCountForThisFile = readBuffers[ZONE_COUNT + 1][fileN]->readInt();
+            int docCountForThisFile;
+            (*readBuffers[ZONE_COUNT + 1][fileN]) >> docCountForThisFile;
             perTermDocCount[termsWritten][currFileCount] = docCountForThisFile;
             currTokenDocCount += docCountForThisFile;
             currTokenId.pop();
@@ -177,7 +182,8 @@ void KWayMerge() {
             totalSizes[fileN]--;
 
             if (totalSizes[fileN] > 0) {
-                auto token = readBuffers[ZONE_COUNT + 1][fileN]->readString();
+                std::string token;
+                (*readBuffers[ZONE_COUNT + 1][fileN]) >> token;
                 currTokenId.emplace(token, fileN);
             }
         }
