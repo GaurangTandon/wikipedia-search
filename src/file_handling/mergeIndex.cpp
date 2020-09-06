@@ -188,13 +188,13 @@ void KWayMerge() {
             }
         }
 
-//        if (actualWrite) {
-        writeBuffers[ZONE_COUNT + 1]->write(smallestToken, ' ');
-        writeBuffers[ZONE_COUNT + 1]->write(currTokenDocCount, ' ');
-        termsWritten++;
-//        } else {
+        if (actualWrite) {
+            writeBuffers[ZONE_COUNT + 1]->write(smallestToken, ' ');
+            writeBuffers[ZONE_COUNT + 1]->write(currTokenDocCount, ' ');
+            termsWritten++;
+        } else {
 
-//        }
+        }
 
 
         if (termsWritten >= TERMS_PER_SPLIT_FILE) {

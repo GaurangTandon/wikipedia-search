@@ -108,6 +108,7 @@ void *performSearch(void *dataP) {
             while (readCount < readLim) {
                 auto currToken = mainBuff->readString();
                 int docCount = mainBuff->readInt();
+                // can store this variable in the file itself
                 int actualDocCount = 0; // number of documents with this term in their zone
                 const bool isCurrTokenReq = currToken == token;
 
@@ -123,7 +124,7 @@ void *performSearch(void *dataP) {
                 }
 
                 if (isCurrTokenReq and actualDocCount > 0) {
-                    score_value denom = log10((score_value) totalDocCount / actualDocCount);
+                    score_value denom = log10l((score_value) totalDocCount / actualDocCount);
 
                     for (auto e : thisTokenScores) {
                         e.first *= denom;
@@ -241,14 +242,14 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
 #define ignoreLine docTitleFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-        int currI = 0;
+        int currDocArrayIdx = 0;
         for (int id = 0; id < totalDocCount; id++) {
-            if (id < docIdSorted[currI].first) ignoreLine
+            if (id < docIdSorted[currDocArrayIdx].first) ignoreLine
             else {
-                int idx = docIdSorted[currI].second;
+                int idx = docIdSorted[currDocArrayIdx].second;
                 getline(docTitleFile, outputResults[idx].second);
-                currI++;
-                if (currI == K) break;
+                currDocArrayIdx++;
+                if (currDocArrayIdx == K) break;
             }
         }
     }

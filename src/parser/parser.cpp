@@ -8,7 +8,7 @@
 #include "../headers/parsing_common.h"
 #include "../file_handling/filehandler.cpp"
 
-const std::vector<std::string> fileNames = {
+std::vector<std::string> fileNames = {
         "../phase2data/enwiki-20200801-pages-articles-multistream10-p2336423p3046512.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream11-p3046513p3926861.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream12-p3926862p5040436.xml",
@@ -45,9 +45,9 @@ const std::vector<std::string> fileNames = {
         "../phase2data/enwiki-20200801-pages-articles-multistream9-p1791080p2336422.xml"
 };
 
-//const std::vector<std::string> fileNames = {
-//        "../xml_files/official.xml"
-//};
+const std::vector<std::string> fileNames2 = {
+        "../xml_files/official.xml"
+};
 
 /*
  * next_expect(): if `content` argument is set, then event type must be start element
@@ -355,7 +355,7 @@ int main(int argc, char *argv[]) {
 
         allocate_mem();
 
-        for (const auto &filePath : fileNames) {
+        for (const auto &filePath : fileNames2) {
             std::ifstream ifs(filePath);
             // our xml is in the namespace denoted by the xmlns attribute in the XML file
             // we don't want attributes or namespace declarations
