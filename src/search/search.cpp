@@ -20,6 +20,7 @@ typedef struct thread_data {
     results_container *results;
     int zone;
 } thread_data;
+std::vector<int> zonePrefixMarkers(255, -1);
 
 int totalDocCount;
 int uniqueTokensCount;
@@ -31,13 +32,7 @@ std::vector<std::string> zonalQueries(ZONE_COUNT);
 int K;
 
 void extractZonalQueries(const std::string &query) {
-    std::vector<int> zones(255, -1);
-    zones['t'] = TITLE_ZONE;
-    zones['i'] = INFOBOX_ZONE;
-    zones['b'] = TEXT_ZONE;
-    zones['c'] = CATEGORY_ZONE;
-    zones['r'] = REFERENCES_ZONE;
-    zones['l'] = EXTERNAL_LINKS_ZONE;
+    for (auto &x : zonalQueries) x.clear();
 
     constexpr char QUERY_SEP = ':';
 
@@ -46,8 +41,8 @@ void extractZonalQueries(const std::string &query) {
     for (int i = 0; i < query.size(); i++) {
         auto c = query[i];
 
-        if (zones[c] > -1 and i < query.size() - 1 and query[i + 1] == QUERY_SEP) {
-            currZone = zones[c];
+        if (zonePrefixMarkers[c] > -1 and i < query.size() - 1 and query[i + 1] == QUERY_SEP) {
+            currZone = zonePrefixMarkers[c];
             i++;
             continue;
         }
@@ -108,8 +103,7 @@ void *performSearch(void *dataP) {
                 }
             }
 
-            if (isCurrTokenReq) {
-                assert(actualDocCount > 0);
+            if (isCurrTokenReq and actualDocCount > 0) {
                 double denom = log10((double) totalDocCount / actualDocCount);
 
                 for (auto e : thisTokenScores) {
@@ -260,6 +254,13 @@ int main(int argc, char *argv[]) {
         milestonesFile >> str;
         milestoneWords.push_back(str);
     }
+
+    zonePrefixMarkers['t'] = TITLE_ZONE;
+    zonePrefixMarkers['i'] = INFOBOX_ZONE;
+    zonePrefixMarkers['b'] = TEXT_ZONE;
+    zonePrefixMarkers['c'] = CATEGORY_ZONE;
+    zonePrefixMarkers['r'] = REFERENCES_ZONE;
+    zonePrefixMarkers['l'] = EXTERNAL_LINKS_ZONE;
 
     char *queryFilePath = argv[2];
 
