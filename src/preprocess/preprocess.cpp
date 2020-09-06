@@ -2,15 +2,10 @@
 
 // ignoring apostrophe for now, valid word is just a-z, $, _, 0-9
 
-// wouldn't recommend going below 25 because few popular words
-// like internationalization are very long
-// Full stats: http://norvig.com/mayzner.html
-constexpr int MAX_WORD_LEN = 25;
 
 constexpr inline int FastTrie::char_index(char c) {
     return c - 'a';
 }
-
 
 FastTrie::FastTrie() {
     trans = {get_def()};
@@ -135,8 +130,8 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
 
         int word_len = right - left + 1;
 
-        if (word_len <= MAX_WORD_LEN and not trie.is_end_string(curr)) {
-//            freq[text.substr(left, word_len)]++;
+        // >= 2 since a single letter word is 1. too vague 2. gets stemmed into an empty string by stemmer
+        if (word_len <= MAX_WORD_LEN and not trie.is_end_string(curr) and word_len >= 2) {
             for (int i = 0; i < word_len; i++) {
                 commonWord[i] = text[i + left];
             }

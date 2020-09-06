@@ -225,8 +225,9 @@ int main(int argc, char *argv[]) {
     outputDir = std::string(argv[1]) + "/";
     statFileName = std::string(argv[2]);
 
-    std::ifstream countFile(outputDir + "file_stat.txt");
+    std::ifstream countFile(outputDir + "stat.txt");
     countFile >> fileCount;
+    countFile.close();
 
     milestoneWords.open(outputDir + "milestone.txt");
     statFile.open(statFileName, std::ios_base::out | std::ios_base::app);

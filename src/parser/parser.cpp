@@ -366,8 +366,6 @@ int main(int argc, char *argv[]) {
         free(memory->store);
         delete memory->alldata;
         free(memory);
-
-        std::cout << "Written terms and docs in time " << timer << '\n';
     } catch (xml::parsing &e) {
         std::cout << e.what() << '\n';
         return 1;

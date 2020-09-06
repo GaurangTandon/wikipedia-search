@@ -18,6 +18,7 @@ typedef std::pair<double, int> score_type; // { score, page-id }
 // least scoring element at the top so it can be popped
 typedef std::priority_queue<score_type, std::vector<score_type>, std::greater<>> results_container;
 int totalDocCount;
+int uniqueTokensCount;
 std::vector<std::string> milestoneWords;
 
 Preprocessor *processor;
@@ -54,7 +55,8 @@ std::vector<std::string> extractZonalQueries(const std::string &query) {
 }
 
 inline int getIndex(const std::string &token) {
-    return std::lower_bound(milestoneWords.begin(), milestoneWords.end(), token) - milestoneWords.begin();
+    auto lowIt = std::upper_bound(milestoneWords.begin(), milestoneWords.end(), token) - 1;
+    return lowIt - milestoneWords.begin();
 }
 
 // PRECONDITION: query is not empty
@@ -66,6 +68,10 @@ results_container performSearch(const std::string &query, int zone, int maxSize)
 
     for (const auto &token : tokens) {
         int fileNum = getIndex(token);
+        int lim = TERMS_PER_SPLIT_FILE;
+        if (fileNum == milestoneWords.size() - 1) {
+            lim = uniqueTokensCount % TERMS_PER_SPLIT_FILE;
+        }
 
         if (prevFile != fileNum) {
             auto str = std::to_string(fileNum);
@@ -76,7 +82,7 @@ results_container performSearch(const std::string &query, int zone, int maxSize)
         }
 
         std::vector<score_type> thisTokenScores;
-        while (true) {
+        for (int _ = 0; _ < lim; _++) {
             auto currToken = mainBuff->readString();
             int docCount = mainBuff->readInt();
             int actualDocCount = 0; // number of documents with this term in their zone
@@ -219,7 +225,6 @@ int main(int argc, char *argv[]) {
     std::ifstream statFile(outputDir + "stat.txt");
     statFile >> totalDocCount; // first read is actually file count
     statFile >> totalDocCount;
-    int uniqueTokensCount;
     statFile >> uniqueTokensCount;
 
     std::ifstream milestonesFile(outputDir + "milestone.txt");

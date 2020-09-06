@@ -1,3 +1,6 @@
+#ifndef COMMON_HEADER
+#define COMMON_HEADER
+
 #include <map>
 #include <unordered_map>
 #include <vector>
@@ -12,8 +15,6 @@ std::vector<std::string> zoneFirstLetter = {"b", "i", "c", "t", "l", "r"};
 std::vector<double> zoneSearchWeights = {0.1, 1, 1, 10, 0.2, 0.2};
 
 typedef std::map<std::string, std::vector<int>> local_data_type;
-
-
 // data[term_name] = postings list; list[i] = { doc_id, { freq_information }};
 typedef std::vector<std::pair<int, std::vector<int>>> postings_list_type;
 typedef std::map<std::string, postings_list_type> data_type;
@@ -27,3 +28,10 @@ typedef std::map<std::string, postings_list_type> data_type;
     timer = calc_time(st, et);
 
 constexpr int TERMS_PER_SPLIT_FILE = 100000;
+
+// wouldn't recommend going below 25 because few popular words
+// like internationalization are very long
+// Full stats: http://norvig.com/mayzner.html
+constexpr int MAX_WORD_LEN = 25;
+
+#endif
