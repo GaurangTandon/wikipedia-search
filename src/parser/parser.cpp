@@ -8,12 +8,52 @@
 #include "../headers/parsing_common.h"
 #include "../file_handling/filehandler.cpp"
 
+const std::vector<std::string> fileNames = {
+        "../phase2data/enwiki-20200801-pages-articles-multistream10-p2336423p3046512.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream11-p3046513p3926861.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream12-p3926862p5040436.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream13-p5040437p6197594.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream14-p6197595p7697594.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream14-p7697595p7744800.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream15-p7744801p9244800.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream15-p9244801p9518048.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream16-p11018049p11539266.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream16-p9518049p11018048.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream17-p11539267p13039266.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream17-p13039267p13693073.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream18-p13693074p15193073.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream18-p15193074p16120542.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream19-p16120543p17620542.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream19-p17620543p18754735.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream1-p1p30303.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream20-p18754736p20254735.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream20-p20254736p21222156.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream21-p21222157p22722156.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream21-p22722157p23927983.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream22-p23927984p25427983.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream22-p25427984p26823660.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream23-p26823661p28323660.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream23-p28323661p29823660.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream23-p29823661p30503450.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream2-p30304p88444.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream3-p88445p200509.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream4-p200510p352689.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream5-p352690p565313.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream6-p565314p892912.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream7-p892913p1268691.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream8-p1268692p1791079.xml",
+        "../phase2data/enwiki-20200801-pages-articles-multistream9-p1791080p2336422.xml"
+};
+
+//const std::vector<std::string> fileNames = {
+//        "../xml_files/official.xml"
+//};
+
 /*
  * next_expect(): if `content` argument is set, then event type must be start element
  */
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-std::string filePath;
 int totalTokenCount = 0;
 int totalDocCount = 0;
 std::ofstream docTitlesOutput;
@@ -90,28 +130,28 @@ processText(data_type &all_data, const int docid, const int zone, const std::str
     totalTokenCount += processor->processText(all_data, docid, zone, text, start, end);
 }
 
-int extractInfobox(const std::string &text, const int start) {
+int extractInfobox(const WikiPage *page, const std::string &text, const int start) {
     int cnt = 0;
     int end = start;
 
     while (end < text.size() - 1) {
-        if (text[end] == '{' and text[end + 1] == '{') cnt++;
-        else if (text[end] == '}' and text[end + 1] == '}') {
+        if (text[end] == '{' and text[end + 1] == '{') {
+            end += 2;
+            cnt++;
+        } else if (text[end] == '}' and text[end + 1] == '}') {
             cnt--;
+
             if (cnt == 0) {
                 end++;
                 break;
-            }
-        }
-
-        end++;
+            } else end += 2;
+        } else end++;
     }
 
     // TODO: remove this check later
     if (cnt != 0) {
-//        std::cout << page->title << std::endl;
-        std::cout << cnt << std::endl;
-        exit(1);
+        std::cout << "!" << page->title << std::endl;
+        end = text.size() - 1;
     }
 
     return end;
@@ -171,7 +211,7 @@ void extractData(memory_type *mem, WikiPage *page) {
         if (Preprocessor::fast_equals(text, TEXT_INFOBOX, i)) {
             start += TEXT_INFOBOX.size();
             zone = INFOBOX_ZONE;
-            end = extractInfobox(text, i);
+            end = extractInfobox(page, text, i);
         } else if (Preprocessor::fast_equals(text, TEXT_CATEGORY, i)) {
             start += TEXT_CATEGORY.size();
             zone = CATEGORY_ZONE;
@@ -198,22 +238,20 @@ void extractData(memory_type *mem, WikiPage *page) {
     processText(all_data, docid, TITLE_ZONE, page->title, 0, page->title.size() - 1);
 }
 
-class WikiSiteInfo {
-public:
-    WikiSiteInfo(xml::parser &p) {
-        p.next_expect(xml::parser::start_element, NS, "siteinfo", xml::content::complex);
+void parseWikiSiteInfo(xml::parser &p) {
+    p.next_expect(xml::parser::start_element, NS, "siteinfo", xml::content::complex);
 
-        for (auto e : p) {
-            if (e == xml::parser::start_element) {
-            }
-            if (e == xml::parser::end_element) {
-                if (p.name() == "siteinfo") return;
-            }
+    for (auto e : p) {
+        if (e == xml::parser::start_element) {
         }
-
-        assert(false);
+        if (e == xml::parser::end_element) {
+            if (p.name() == "siteinfo") return;
+        }
     }
-};
+
+    assert(false);
+}
+
 
 long double timer;
 
@@ -244,7 +282,7 @@ void *thread_checkpoint(void *arg) {
     writeIndex(mem->alldata, mem->checkpoint_num);
     end_time
 
-    std::cout << "Written in time " << timer << '\n';
+    std::cout << "Written in time " << timer << std::endl;
 
     for (int i = 0; i < mem->size; i++) {
         delete mem->store[i];
@@ -260,6 +298,7 @@ void *thread_checkpoint(void *arg) {
 }
 
 void checkpoint() {
+    if (globalMemory->size == 0) return;
     currCheck++;
 
     int size = globalMemory->size;
@@ -277,29 +316,24 @@ void checkpoint() {
     allocate_mem();
 }
 
-class WikiObject {
+void parseWikiObject(xml::parser &p) {
+    p.next_expect(xml::parser::start_element, NS, "mediawiki", xml::content::complex);
 
-public:
-    explicit WikiObject(xml::parser &p) {
-        p.next_expect(xml::parser::start_element, NS, "mediawiki", xml::content::complex);
+    parseWikiSiteInfo(p);
 
-        auto wsi = new WikiSiteInfo(p);
-        delete wsi;
+    start_time
 
-        start_time
+    while (p.peek() == xml::parser::start_element) {
+        auto page = new WikiPage(p);
+        globalMemory->store[globalMemory->size++] = page;
 
-        while (p.peek() == xml::parser::start_element) {
-            auto page = new WikiPage(p);
-            globalMemory->store[globalMemory->size++] = page;
-
-            if (globalMemory->size == MX_MEM) {
-                checkpoint();
-            }
+        if (globalMemory->size == MX_MEM) {
+            checkpoint();
         }
-
-        p.next_expect(xml::parser::end_element, NS, "mediawiki");
     }
-};
+
+    p.next_expect(xml::parser::end_element, NS, "mediawiki");
+}
 
 int main(int argc, char *argv[]) {
     auto *stt = new timespec(), *ett = new timespec();
@@ -310,32 +344,35 @@ int main(int argc, char *argv[]) {
     std::cout.tie(nullptr);
 
     std::string statFile;
-    assert(argc == 4);
-    filePath = std::string(argv[1]);
-    setOutputDir(std::string(argv[2]));
-    statFile = std::string(argv[3]);
+    assert(argc == 3);
+    setOutputDir(std::string(argv[1]));
+    statFile = std::string(argv[2]);
 
     docTitlesOutput.open(outputDir + "docs");
 
     try {
         processor = new Preprocessor();
-        std::ifstream ifs(filePath);
-        // our xml is in the namespace denoted by the xmlns attribute in the XML file
-        // we don't want attributes or namespace declarations
-
-        // if you put the receive_namespace_decls flag in the parser argument, it will start receiving
-        // namespace decls also, which may be desirable, but for now, skip it and hardcode the namespace
-        xml::parser p(ifs, filePath, xml::parser::receive_characters | xml::parser::receive_elements);
 
         allocate_mem();
 
-        std::cout << "Starting parsing" << std::endl;
+        for (const auto &filePath : fileNames) {
+            std::ifstream ifs(filePath);
+            // our xml is in the namespace denoted by the xmlns attribute in the XML file
+            // we don't want attributes or namespace declarations
 
-        auto wo = new WikiObject(p);
+            // if you put the receive_namespace_decls flag in the parser argument, it will start receiving
+            // namespace decls also, which may be desirable, but for now, skip it and hardcode the namespace
+            xml::parser p(ifs, filePath, xml::parser::receive_characters | xml::parser::receive_elements);
 
-        checkpoint();
+            std::cout << "Starting parsing" << std::endl;
 
-        std::cout << "Finished parsing the xml" << std::endl;
+            parseWikiObject(p);
+
+            checkpoint();
+
+            std::cout << "Finished parsing the xml " << filePath << std::endl;
+            ifs.close();
+        }
 
         for (int thread = 0; thread < threadCount; thread++) {
             pthread_join(threads[thread], nullptr);
@@ -350,8 +387,6 @@ int main(int argc, char *argv[]) {
         file_stats << totalDocCount << '\n';
         file_stats.close();
 
-        ifs.close();
-        delete wo;
         delete processor;
         free(globalMemory->store);
         delete globalMemory->alldata;

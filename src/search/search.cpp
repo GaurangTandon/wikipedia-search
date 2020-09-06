@@ -13,7 +13,9 @@
 
 #define ceil(x, y) (((x) + (y) - 1) / (y))
 
-typedef std::pair<double, int> score_type; // { score, page-id }
+
+typedef long double score_value;
+typedef std::pair<score_value, int> score_type; // { score, page-id }
 // least scoring element at the top so it can be popped
 typedef std::priority_queue<score_type, std::vector<score_type>, std::greater<>> results_container;
 typedef struct thread_data {
@@ -21,6 +23,7 @@ typedef struct thread_data {
     int zone;
 } thread_data;
 std::vector<int> zonePrefixMarkers(255, -1);
+constexpr int BOOST_FACTOR = 10;
 
 int totalDocCount;
 int uniqueTokensCount;
@@ -28,11 +31,16 @@ std::vector<std::string> milestoneWords;
 
 Preprocessor *processor;
 std::string outputDir;
-std::vector<std::string> zonalQueries(ZONE_COUNT);
+// [zone][boolean boosted]
+std::vector<std::vector<std::string>> zonalQueries(ZONE_COUNT, std::vector<std::string>(2, ""));
 int K;
 
+constexpr inline score_value sublinear_scaling(int termFreq) {
+    return termFreq > 0 ? (1 + log10(termFreq)) : 0;
+}
+
 void extractZonalQueries(const std::string &query) {
-    for (auto &x : zonalQueries) x.clear();
+    for (auto &x : zonalQueries) { for (auto &y : x) y.clear(); }
 
     constexpr char QUERY_SEP = ':';
 
@@ -47,8 +55,12 @@ void extractZonalQueries(const std::string &query) {
             continue;
         }
 
-        if (currZone != -1) zonalQueries[currZone] += c;
-        else for (int zoneI = 0; zoneI < ZONE_COUNT; zoneI++) zonalQueries[zoneI] += c;
+        if (currZone != -1) {
+            zonalQueries[currZone][1] += c;
+        } else
+            for (int zoneI = 0; zoneI < ZONE_COUNT; zoneI++) {
+                zonalQueries[zoneI][0] += c;
+            }
     }
 }
 
@@ -61,72 +73,81 @@ inline int getIndex(const std::string &token) {
 void *performSearch(void *dataP) {
     auto &data = *((thread_data *) dataP);
 
-    const auto &query = zonalQueries[data.zone];
-    auto tokens = processor->getStemmedTokens(query, 0, query.size() - 1);
-    int prevFile = -1;
-    ReadBuffer *mainBuff, *idBuff, *zonalBuff;
-    data.results = new results_container();
-    if (tokens.empty()) return nullptr;
-    int readCount;
-    int readLim;
+    for (int boost = 0; boost < 2; boost++) {
+        const auto &query = zonalQueries[data.zone][boost];
+        if (query.empty()) continue;
 
-    for (const auto &token : tokens) {
-        int fileNum = getIndex(token);
+        auto tokens = processor->getStemmedTokens(query, 0, query.size() - 1);
+        if (tokens.empty()) continue;
 
-        if (prevFile != fileNum) {
-            auto str = std::to_string(fileNum);
-            mainBuff = new ReadBuffer(outputDir + "mimain" + str);
-            idBuff = new ReadBuffer(outputDir + "miids" + str);
-            zonalBuff = new ReadBuffer(outputDir + "mi" + zoneFirstLetter[data.zone] + str);
-            prevFile = fileNum;
+        int prevFile = -1;
 
-            if (fileNum == milestoneWords.size() - 1) {
-                readLim = uniqueTokensCount % TERMS_PER_SPLIT_FILE;
-            } else readLim = TERMS_PER_SPLIT_FILE;
+        ReadBuffer *mainBuff, *idBuff, *zonalBuff;
+        data.results = new results_container();
 
-            readCount = 0;
-        }
+        int readCount, readLim;
 
-        std::vector<score_type> thisTokenScores;
-        while (readCount < readLim) {
-            auto currToken = mainBuff->readString();
-            int docCount = mainBuff->readInt();
-            int actualDocCount = 0; // number of documents with this term in their zone
-            const bool isCurrTokenReq = currToken == token;
+        for (const auto &token : tokens) {
+            int fileNum = getIndex(token);
 
-            for (int f = 0; f < docCount; f++) {
-                int docId = idBuff->readInt();
-                int termFreqInDoc = zonalBuff->readInt();
+            if (prevFile != fileNum) {
+                auto str = std::to_string(fileNum);
+                mainBuff = new ReadBuffer(outputDir + "mimain" + str);
+                idBuff = new ReadBuffer(outputDir + "miids" + str);
+                zonalBuff = new ReadBuffer(outputDir + "mi" + zoneFirstLetter[data.zone] + str);
+                prevFile = fileNum;
 
-                if (isCurrTokenReq) {
-                    thisTokenScores.emplace_back(termFreqInDoc, docId);
-                    actualDocCount += (termFreqInDoc > 0);
-                }
+                if (fileNum == milestoneWords.size() - 1) {
+                    readLim = uniqueTokensCount % TERMS_PER_SPLIT_FILE;
+                } else readLim = TERMS_PER_SPLIT_FILE;
+
+                readCount = 0;
             }
 
-            if (isCurrTokenReq and actualDocCount > 0) {
-                double denom = log10((double) totalDocCount / actualDocCount);
+            std::vector<score_type> thisTokenScores;
+            while (readCount < readLim) {
+                auto currToken = mainBuff->readString();
+                int docCount = mainBuff->readInt();
+                int actualDocCount = 0; // number of documents with this term in their zone
+                const bool isCurrTokenReq = currToken == token;
 
-                for (auto e : thisTokenScores) {
-                    e.first *= denom;
-                    data.results->push(e);
+                for (int f = 0; f < docCount; f++) {
+                    int docId = idBuff->readInt();
+                    int termFreqInDoc = zonalBuff->readInt();
 
-                    if (data.results->size() > K) data.results->pop();
+                    if (isCurrTokenReq) {
+                        auto value = sublinear_scaling(termFreqInDoc);
+                        thisTokenScores.emplace_back(value, docId);
+                        actualDocCount += (termFreqInDoc > 0);
+                    }
                 }
 
-                break;
-            }
+                if (isCurrTokenReq and actualDocCount > 0) {
+                    score_value denom = log10((score_value) totalDocCount / actualDocCount);
 
-            readCount++;
+                    for (auto e : thisTokenScores) {
+                        e.first *= denom;
+                        if (boost) e.first *= BOOST_FACTOR;
+                        data.results->push(e);
+
+                        if (data.results->size() > K) data.results->pop();
+                    }
+
+                    break;
+                }
+
+                readCount++;
+            }
         }
+
+        zonalBuff->close();
+        mainBuff->close();
+        idBuff->close();
+        delete zonalBuff;
+        delete mainBuff;
+        delete idBuff;
     }
 
-    zonalBuff->close();
-    mainBuff->close();
-    idBuff->close();
-    delete zonalBuff;
-    delete mainBuff;
-    delete idBuff;
     return nullptr;
 }
 
@@ -143,7 +164,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
     results_container results;
 
-    std::map<int, double> docScores; // maximal size would be ZONE_COUNT * K
+    std::map<int, score_value> docScores; // maximal size would be ZONE_COUNT * K
 
     int zoneI = 0;
     pthread_t threads[ZONE_COUNT];
@@ -170,7 +191,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
             while (not intermediateResults->empty()) {
                 auto res = intermediateResults->top();
                 intermediateResults->pop();
-                double newScore = res.first * zoneSearchWeights[zoneI];
+                score_value newScore = res.first * zoneSearchWeights[zoneI];
                 docScores[res.second] += newScore;
             }
 
@@ -188,7 +209,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
     // sorted from most score->least score
     std::vector<std::pair<int, std::string>> outputResults(K);
-    std::vector<double> scores(K);
+    std::vector<score_value> scores(K);
     std::vector<std::pair<int, int>> docIdSorted(results.size()); // id, index
 
     for (int i = int(results.size()) - 1; i >= 0; i--) {

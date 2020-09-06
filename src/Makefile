@@ -7,7 +7,7 @@ EXEDIR = dist
 
 STEM_EXE = $(LIBSTEM)/libstemmer.o
 BZIP_EXE = $(BZIP_DIR)/libbz2.a
-CXXFLAGS = -pthread -O3 # -O0 -g -fsanitize=address -fsanitize=undefined
+CXXFLAGS = -pthread  -O3 # -O0 -g -fsanitize=address -fsanitize=undefined
 
 debug: prep indexer searcher
 all: prep indexer searcher
@@ -20,7 +20,7 @@ indexer:
 	$(CXX) file_handling/mergeIndex.cpp $(BZIP_EXE) $(CXXFLAGS) -o $(EXEDIR)/merger.sh
 
 prep:
-	@mkdir -p $(EXEDIR)
+	mkdir -p $(EXEDIR)
 	$(MAKE) -C $(LIBSTEM)
 	$(MAKE) -C $(BZIP_DIR)
 

@@ -41,14 +41,15 @@ std::vector<std::string> mostFrequentStems = {"system", "number", "film", "htm",
                                               "archiveurl", "archivedate", "many", "people", "war", "december",
                                               "october", "march", "state", "google", "national", "june", "january",
                                               "live", "april", "july", "pdf", "city", "sub", "dead", "press",
-                                              "location", "uk", "text", "doi", "can", "time", "used", "sfn", "issue",
-                                              "states", "br", "website", "thumb", "two", "university", "de", "united",
-                                              "author", "id", "math", "page", "language", "right", "jpg", "history",
+                                              "location", "text", "doi", "can", "time", "used", "sfn", "issue",
+                                              "states", "website", "thumb", "two", "university", "united",
+                                              "author", "math", "page", "language", "right", "jpg", "history",
                                               "ndash", "volume", "work", "access", "align", "style", "american",
                                               "world", "nbsp", "file", "pages", "one", "may", "status", "html",
-                                              "category", "books", "isbn", "also", "news", "new", "10", "book",
+                                              "category", "books", "isbn", "also", "news", "new", "book",
                                               "accessdate", "journal", "year", "last", "publisher", "first", "org",
                                               "archive", "com", "https", "www", "http", "name", "date", "cite", "web",
                                               "title", "url", "ref"};
+
 
 #endif
