@@ -210,7 +210,6 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
 #define ignoreLine docTitleFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-        // TODO: can optimize using lseek, see if necessary
         int currI = 0;
         for (int id = 0; id < totalDocCount; id++) {
             if (id < docIdSorted[currI].first) ignoreLine

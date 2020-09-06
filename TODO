@@ -1,5 +1,2 @@
 - make a cache of stemmer; pystemmer does that: https://github.com/snowballstem/pystemmer/blob/master/docs/quickstart.txt
-- move away from maps and towards vectors; as you can see on godbolt maps have a much much higher overhead (https://godbolt.org/z/zax57G)
-- why is empty token given token id 1, remove it
 - search is very slow because of the compressed dump, even in the profiler, most samples that are taken are taken of the BZ2_readChar
-- add print for total number of unique tokens into stat file (argv[3]) after merging is done
