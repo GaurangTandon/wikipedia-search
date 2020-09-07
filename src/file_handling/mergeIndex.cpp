@@ -36,22 +36,38 @@ void *readAndWriteSequential(void *arg) {
         const int lim = data->perTermFileCount[termI];
         const bool shouldWrite = data->toWrite[termI];
 
-        for (int i = 0; i < lim; i++) {
-            const auto &count = data->docCount[termI][i];
-            const auto &fileN = data->fileNumbers[termI][i];
-            auto &buff = *buffers[fileN];
-//            int prevDocId = -1;
+        if (data->zone == ZONE_COUNT) {
+            int prevDocId = -1;
 
-            for (int j = 0; j < count; j++) {
-                int val;
-                buff >> val;
+            for (int i = 0; i < lim; i++) {
+                const auto &count = data->docCount[termI][i];
+                const auto &fileN = data->fileNumbers[termI][i];
+                auto &buff = *buffers[fileN];
 
-                if (shouldWrite) {
-//                    int valToWrite = prevDocId == -1 ? val : val - prevDocId;
-//                    writeBuff << valToWrite << ' ';
-                    writeBuff << val << " ";
+                for (int j = 0; j < count; j++) {
+                    int val;
+                    buff >> val;
 
-//                    prevDocId = val;
+                    if (shouldWrite) {
+                        int valToWrite = prevDocId == -1 ? val : val - prevDocId;
+                        writeBuff << valToWrite << ' ';
+                        prevDocId = val;
+                    }
+                }
+            }
+        } else {
+            for (int i = 0; i < lim; i++) {
+                const auto &count = data->docCount[termI][i];
+                const auto &fileN = data->fileNumbers[termI][i];
+                auto &buff = *buffers[fileN];
+
+                for (int j = 0; j < count; j++) {
+                    int val;
+                    buff >> val;
+
+                    if (shouldWrite) {
+                        writeBuff << val << ' ';
+                    }
                 }
             }
         }
