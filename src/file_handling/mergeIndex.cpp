@@ -5,6 +5,10 @@
 #include <queue>
 #include <cassert>
 
+enum {
+    FREQ_BUFF, ID_BUFF, MAIN_BUFF, BUFF_COUNT
+};
+
 std::string outputDir;
 int fileCount;
 
@@ -17,7 +21,7 @@ std::ofstream personalStatFile;
 
 // pointer dereference costs very little: https://stackoverflow.com/questions/1910712/ https://stackoverflow.com/questions/431469
 typedef struct readWriteType {
-    int zone;
+    int buff;
     int termCount;
     int *perTermFileCount;
     int **docCount;
@@ -29,14 +33,14 @@ typedef struct readWriteType {
 void *readAndWriteSequential(void *arg) {
     const auto data = (readWriteType *) arg;
 
-    auto &buffers = readBuffers[data->zone];
-    auto &writeBuff = *writeBuffers[data->zone];
+    auto &buffers = readBuffers[data->buff];
+    auto &writeBuff = *writeBuffers[data->buff];
 
     for (int termI = 0; termI < data->termCount; termI++) {
         const int lim = data->perTermFileCount[termI];
         const bool shouldWrite = data->toWrite[termI];
 
-        if (data->zone == ZONE_COUNT) {
+        if (data->buff == ID_BUFF) {
             int prevDocId = -1;
 
             for (int i = 0; i < lim; i++) {
@@ -55,14 +59,14 @@ void *readAndWriteSequential(void *arg) {
                     }
                 }
             }
-        } else {
+        } else { // else it's FREQ_BUFF
             for (int i = 0; i < lim; i++) {
                 const auto &count = data->docCount[termI][i];
                 const auto &fileN = data->fileNumbers[termI][i];
                 auto &buff = *buffers[fileN];
 
                 for (int j = 0; j < count; j++) {
-                    int val;
+                    std::string val;
                     buff >> val;
 
                     if (shouldWrite) {
@@ -90,20 +94,18 @@ void KWayMerge() {
     typedef std::pair<std::string, int> nextTokenType;
     std::priority_queue<nextTokenType, std::vector<nextTokenType>, std::greater<>> currTokenId;
 
-    readBuffers = (std::ifstream ***) malloc(sizeof(std::ifstream **) * (ZONE_COUNT + 2));
-    for (int i = 0; i <= ZONE_COUNT + 1; i++) {
+    readBuffers = (std::ifstream ***) malloc(sizeof(std::ifstream **) * BUFF_COUNT);
+    for (int i = 0; i < BUFF_COUNT; i++) {
         readBuffers[i] = (std::ifstream **) malloc(sizeof(std::ifstream *) * fileCount);
     }
 
     for (auto i = 0; i < fileCount; i++) {
         auto iStr = std::to_string(i);
 
-        for (int j = 0; j < ZONE_COUNT; j++) {
-            readBuffers[j][i] = new std::ifstream(outputDir + "i" + zoneFirstLetter[j] + iStr);
-        }
-        readBuffers[ZONE_COUNT][i] = new std::ifstream(outputDir + "iid" + iStr);
-        readBuffers[ZONE_COUNT + 1][i] = new std::ifstream(outputDir + "i" + iStr);
-        auto &tempBuff = *readBuffers[ZONE_COUNT + 1][i];
+        readBuffers[FREQ_BUFF][i] = new std::ifstream(outputDir + "if" + iStr);
+        readBuffers[ID_BUFF][i] = new std::ifstream(outputDir + "iid" + iStr);
+        readBuffers[MAIN_BUFF][i] = new std::ifstream(outputDir + "i" + iStr);
+        auto &tempBuff = *readBuffers[MAIN_BUFF][i];
 
         tempBuff >> totalSizes[i];
         std::string token;
@@ -117,7 +119,7 @@ void KWayMerge() {
     int termsSeen = 0;
     int termsWritten = 0;
 
-    writeBuffers = (std::ofstream **) malloc((ZONE_COUNT + 2) * sizeof(std::ofstream *));
+    writeBuffers = (std::ofstream **) malloc(BUFF_COUNT * sizeof(std::ofstream *));
     // merged index{zone}, merged index main, merged index docids
     // mimain has termid-doccount, miids has docids one after the other
     // mit, mic, mil, mib, mir, mii, mimain, miids
@@ -131,7 +133,7 @@ void KWayMerge() {
         perTermFileNumbers[i] = (int *) malloc(sizeof(int) * fileCount);
     }
 
-    pthread_t threads[ZONE_COUNT + 1];
+    pthread_t threads[BUFF_COUNT];
     int milestoneCount = 0;
 
     auto initializeBuffer = [&]() {
@@ -139,11 +141,9 @@ void KWayMerge() {
         latestToken = "";
 
         auto str = std::to_string(currentMergedCount);
-        for (int i = 0; i < ZONE_COUNT; i++) {
-            writeBuffers[i] = new std::ofstream(outputDir + "mi" + zoneFirstLetter[i] + str);
-        }
-        writeBuffers[ZONE_COUNT] = new std::ofstream(outputDir + "miids" + str);
-        writeBuffers[ZONE_COUNT + 1] = new std::ofstream(outputDir + "mimain" + str);
+        writeBuffers[FREQ_BUFF] = new std::ofstream(outputDir + "mif" + str);
+        writeBuffers[ID_BUFF] = new std::ofstream(outputDir + "miids" + str);
+        writeBuffers[MAIN_BUFF] = new std::ofstream(outputDir + "mimain" + str);
         currentMergedCount++;
     };
 
@@ -152,7 +152,7 @@ void KWayMerge() {
     auto closeBuffers = [&]() {
         totalTermsWritten += termsWritten;
         std::cout << totalTermsWritten << std::endl;
-        for (int i = 0; i <= ZONE_COUNT + 1; i++) {
+        for (int i = 0; i < BUFF_COUNT; i++) {
             writeBuffers[i]->close();
             delete writeBuffers[i];
         }
@@ -160,19 +160,20 @@ void KWayMerge() {
 
     auto flushBuffers = [&](bool reInit = true) {
         if (termsWritten > 0) {
-            for (int zone = 0; zone <= ZONE_COUNT; zone++) {
+            for (int buff = 0; buff < BUFF_COUNT - 1; buff++) {
                 auto threadData = new readWriteType();
-                threadData->zone = zone;
+                threadData->buff = buff;
                 threadData->termCount = termsSeen;
                 threadData->docCount = perTermDocCount;
                 threadData->fileNumbers = perTermFileNumbers;
                 threadData->perTermFileCount = perTermFileCount;
                 threadData->toWrite = perTermToWrite;
-                pthread_create(&threads[zone], nullptr, readAndWriteSequential, threadData);
+                pthread_create(&threads[buff], nullptr, readAndWriteSequential, threadData);
             }
-            for (int i = 0; i <= ZONE_COUNT; i++) {
-                pthread_join(threads[i], nullptr);
+            for (int buff = 0; buff < BUFF_COUNT - 1; buff++) {
+                pthread_join(threads[buff], nullptr);
             }
+
             milestoneWords << latestToken << " " << termsWritten << '\n';
             milestoneCount++;
         }
@@ -201,7 +202,7 @@ void KWayMerge() {
         while (not currTokenId.empty() and currTokenId.top().first == smallestToken) {
             int fileN = perTermFileNumbers[termsSeen][currFileCount] = currTokenId.top().second;
             int docCountForThisFile;
-            (*readBuffers[ZONE_COUNT + 1][fileN]) >> docCountForThisFile;
+            (*readBuffers[MAIN_BUFF][fileN]) >> docCountForThisFile;
             perTermDocCount[termsSeen][currFileCount] = docCountForThisFile;
             currTokenDocCount += docCountForThisFile;
             currTokenId.pop();
@@ -218,13 +219,13 @@ void KWayMerge() {
 
             if (totalSizes[fileN] > 0) {
                 std::string token;
-                (*readBuffers[ZONE_COUNT + 1][fileN]) >> token;
+                (*readBuffers[MAIN_BUFF][fileN]) >> token;
                 currTokenId.emplace(token, fileN);
             }
         }
 
         if (actualWrite) {
-            *writeBuffers[ZONE_COUNT + 1] << smallestToken << ' ' << currTokenDocCount << ' ';
+            *writeBuffers[MAIN_BUFF] << smallestToken << ' ' << currTokenDocCount << ' ';
             termsWritten++;
         }
 
@@ -244,14 +245,15 @@ void KWayMerge() {
     free(perTermFileNumbers);
     free(perTermDocCount);
     free(perTermFileCount);
+    free(perTermToWrite);
     free(writeBuffers);
-    for (int i = 0; i <= ZONE_COUNT + 1; i++) {
+    for (int i = 0; i < BUFF_COUNT; i++) {
         for (int j = 0; j < fileCount; j++) {
             readBuffers[i][j]->close();
             delete readBuffers[i][j];
         }
     }
-    for (int i = 0; i <= ZONE_COUNT + 1; i++) {
+    for (int i = 0; i < BUFF_COUNT; i++) {
         free(readBuffers[i]);
     }
     free(readBuffers);

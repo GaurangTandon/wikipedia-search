@@ -11,8 +11,6 @@
 #include "../preprocess/preprocess.cpp"
 #include "../file_handling/zip_operations.cpp"
 
-#define ceil(x, y) (((x) + (y) - 1) / (y))
-
 typedef long double score_value;
 typedef std::pair<score_value, int> score_type; // { score, page-id }
 // least scoring element at the top so it can be popped
@@ -38,6 +36,30 @@ int K;
 
 constexpr inline score_value sublinear_scaling(int termFreq) {
     return termFreq > 0 ? (1 + log10(termFreq)) : 0;
+}
+
+int findTermFreq(const std::string &freqStr, int zone) {
+    int num = 0, i = 0;
+#define numgen while (i < freqStr.size() and Preprocessor::isnum(freqStr[i])) { \
+        num = num * 10 + (freqStr[i] - '0'); \
+        i++; \
+    }
+
+    if (zone == TEXT_ZONE) {
+        numgen
+
+        return num;
+    }
+
+    while (i < freqStr.size() and freqStr[i] != zoneFirstLetter[i][0]) {
+        i++;
+    }
+
+    i++; // skip the marker
+
+    numgen
+
+    return num;
 }
 
 void extractZonalQueries(const std::string &query) {
@@ -84,7 +106,7 @@ void *performSearch(void *dataP) {
 
         int prevFile = -1;
 
-        std::ifstream mainBuff, idBuff, zonalBuff;
+        std::ifstream mainBuff, idBuff, freqBuff;
         data.results = new results_container();
 
         int readCount, readLim;
@@ -97,7 +119,7 @@ void *performSearch(void *dataP) {
 
                 mainBuff = std::ifstream(outputDir + "mimain" + str);
                 idBuff = std::ifstream(outputDir + "miids" + str);
-                zonalBuff = std::ifstream(outputDir + "mi" + zoneFirstLetter[data.zone] + str);
+                freqBuff = std::ifstream(outputDir + "mif" + str);
                 prevFile = fileNum;
 
                 readLim = milestoneSizes[fileNum];
@@ -111,6 +133,7 @@ void *performSearch(void *dataP) {
                 mainBuff >> currToken;
                 int docCount;
                 mainBuff >> docCount;
+
                 // can store this variable in the file itself
                 int actualDocCount = 0; // number of documents with this term in their zone
                 const bool isCurrTokenReq = currToken == token;
@@ -119,12 +142,13 @@ void *performSearch(void *dataP) {
                 for (int f = 0; f < docCount; f++) {
                     int docId;
                     idBuff >> docId;
-                    int termFreqInDoc;
-                    zonalBuff >> termFreqInDoc;
+                    std::string freqData;
+                    freqBuff >> freqData;
 
                     if (isCurrTokenReq) {
                         const int correctDocId = (prevDocId == -1) ? docId : prevDocId + docId;
 
+                        int termFreqInDoc = findTermFreq(freqData, data.zone);
                         auto value = sublinear_scaling(termFreqInDoc);
                         thisTokenScores.emplace_back(value, correctDocId);
                         actualDocCount += (termFreqInDoc > 0);
