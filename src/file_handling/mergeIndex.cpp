@@ -40,17 +40,18 @@ void *readAndWriteSequential(void *arg) {
             const auto &count = data->docCount[termI][i];
             const auto &fileN = data->fileNumbers[termI][i];
             auto &buff = *buffers[fileN];
-            int prevDocId = -1;
+//            int prevDocId = -1;
 
             for (int j = 0; j < count; j++) {
                 int val;
                 buff >> val;
 
                 if (shouldWrite) {
-                    int valToWrite = prevDocId == -1 ? val : val - prevDocId;
-                    writeBuff << valToWrite << ' ';
+//                    int valToWrite = prevDocId == -1 ? val : val - prevDocId;
+//                    writeBuff << valToWrite << ' ';
+                    writeBuff << val << " ";
 
-                    prevDocId = val;
+//                    prevDocId = val;
                 }
             }
         }
