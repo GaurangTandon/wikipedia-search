@@ -51,7 +51,7 @@ int findTermFreq(const std::string &freqStr, int zone) {
         return num;
     }
 
-    while (i < freqStr.size() and freqStr[i] != zoneFirstLetter[i][0]) {
+    while (i < freqStr.size() and freqStr[i] != zoneFirstLetter[zone][0]) {
         i++;
     }
 
@@ -96,6 +96,7 @@ inline int getIndex(const std::string &token) {
 // PRECONDITION: query is not empty
 void *performSearch(void *dataP) {
     auto &data = *((thread_data *) dataP);
+    data.results = new results_container();
 
     for (int boost = 0; boost < 2; boost++) {
         const auto &query = zonalQueries[data.zone][boost];
@@ -107,7 +108,6 @@ void *performSearch(void *dataP) {
         int prevFile = -1;
 
         std::ifstream mainBuff, idBuff, freqBuff;
-        data.results = new results_container();
 
         int readCount, readLim;
 
