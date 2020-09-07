@@ -26,6 +26,7 @@ constexpr int BOOST_FACTOR = 10;
 
 int totalDocCount;
 int uniqueTokensCount;
+int mileCount;
 std::vector<std::string> milestoneWords;
 std::vector<int> milestoneSizes;
 
@@ -106,6 +107,7 @@ void *performSearch(void *dataP) {
 
             std::vector<score_type> thisTokenScores;
             while (readCount < readLim) {
+//                if (readCount % 1000 == 0 or readCount > 10000) std::cout << readCount << std::endl;
                 std::string currToken;
                 mainBuff >> currToken;
                 int docCount;
@@ -113,6 +115,7 @@ void *performSearch(void *dataP) {
                 // can store this variable in the file itself
                 int actualDocCount = 0; // number of documents with this term in their zone
                 const bool isCurrTokenReq = currToken == token;
+                int prevDocId = -1;
 
                 for (int f = 0; f < docCount; f++) {
                     int docId;
@@ -121,9 +124,13 @@ void *performSearch(void *dataP) {
                     zonalBuff >> termFreqInDoc;
 
                     if (isCurrTokenReq) {
+                        docId = prevDocId == -1 ? docId : prevDocId + docId;
+
                         auto value = sublinear_scaling(termFreqInDoc);
                         thisTokenScores.emplace_back(value, docId);
                         actualDocCount += (termFreqInDoc > 0);
+
+                        prevDocId = docId;
                     }
                 }
 
@@ -273,9 +280,9 @@ int main(int argc, char *argv[]) {
     statFile >> totalDocCount; // first read is actually file count
     statFile >> totalDocCount;
     statFile >> uniqueTokensCount;
+    statFile >> mileCount;
 
     std::ifstream milestonesFile(outputDir + "milestone.txt");
-    int mileCount = ceil(uniqueTokensCount, TERMS_PER_SPLIT_FILE);
     milestoneWords.reserve(mileCount);
     milestoneSizes.reserve(mileCount);
     for (int i = 0; i < mileCount; i++) {

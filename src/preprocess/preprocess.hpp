@@ -23,7 +23,7 @@ struct FastTrie {
 
     inline int new_node();
 
-    void insert(std::string &str, std::string val = "");
+    void insert(std::string &str, std::string val = "hold");
 
     void start(char c);
 

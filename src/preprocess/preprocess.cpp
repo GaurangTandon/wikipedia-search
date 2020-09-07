@@ -70,12 +70,12 @@ Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
     stemTrie = FastTrie();
     commonWord = (sb_symbol *) malloc(MAX_WORD_LEN * sizeof(sb_symbol));
 
-    std::ifstream stopwords_file("preprocess/stopwords_plain.txt", std::ios_base::in);
+    std::ifstream stopwords_file("preprocess/stopwords_improved.txt", std::ios_base::in);
 
     int count;
     stopwords_file >> count;
 
-    assert(count < 200);
+    assert(count < 1000);
     // OPTIMIZATION: read character by character and inline the trie.insert thing
     //  instead of using stream/based file i/o
     // but as it is done only threadCount times, it is probably useless to optimize this
@@ -145,7 +145,7 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
         while (right < end and validChar(text[right + 1])) {
             right++;
             trie.next(text[right]);
-            trie.next(text[right]);
+            stemTrie.next(text[right]);
             hasNumber = hasNumber or isnum(text[right]);
         }
 

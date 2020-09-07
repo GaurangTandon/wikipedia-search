@@ -3,3 +3,4 @@
 - do thresholding on two wikipedia pages presence
 - use champion list to speed up search
 - after all this it might be possible that index size < 1/4th without actual compression - useful for search speed up
+- why is it broken on t:world cup

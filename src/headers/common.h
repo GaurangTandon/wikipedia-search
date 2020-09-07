@@ -35,21 +35,15 @@ constexpr int TERMS_PER_SPLIT_FILE = 100000;
 constexpr int MAX_WORD_LEN = 25;
 constexpr int MIN_WORD_LEN = 3;
 
-std::vector<std::string> mostFrequentStems = {"system", "number", "film", "htm", "sup", "main", "british", "york",
-                                              "john", "list", "english", "small", "february", "november", "gov",
-                                              "years", "use", "century", "september", "left", "center", "august",
-                                              "archiveurl", "archivedate", "many", "people", "war", "december",
+std::vector<std::string> mostFrequentStems = {"system", "film", "british", "york", "john", "english", "list", "small",
+                                              "february", "november", "gov", "years", "use", "century", "september",
+                                              "left", "center", "august", "many", "people", "war", "december",
                                               "october", "march", "state", "google", "national", "june", "january",
-                                              "live", "april", "july", "pdf", "city", "sub", "dead", "press",
-                                              "location", "text", "doi", "can", "time", "used", "sfn", "issue",
+                                              "live", "april", "july", "city", "dead", "press", "one",
+                                              "location", "text", "can", "time", "used", "issue",
                                               "states", "website", "thumb", "two", "university", "united",
-                                              "author", "math", "page", "language", "right", "jpg", "history",
-                                              "ndash", "volume", "work", "access", "align", "style", "american",
-                                              "world", "nbsp", "file", "pages", "one", "may", "status", "html",
-                                              "category", "books", "isbn", "also", "news", "new", "book",
-                                              "accessdate", "journal", "year", "last", "publisher", "first", "org",
-                                              "archive", "com", "https", "www", "http", "name", "date", "cite", "web",
-                                              "title", "url", "ref"};
+                                              "math", "history", "style", "american", "world", "one", "may", "status",
+                                              "html", "category", "books"};
 
 
 #endif

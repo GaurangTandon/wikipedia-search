@@ -40,11 +40,18 @@ void *readAndWriteSequential(void *arg) {
             const auto &count = data->docCount[termI][i];
             const auto &fileN = data->fileNumbers[termI][i];
             auto &buff = *buffers[fileN];
+            int prevDocId = -1;
 
             for (int j = 0; j < count; j++) {
                 int val;
                 buff >> val;
-                if (shouldWrite) writeBuff << val << ' ';
+
+                if (shouldWrite) {
+                    int valToWrite = prevDocId == -1 ? val : val - prevDocId;
+                    writeBuff << valToWrite << ' ';
+
+                    prevDocId = val;
+                }
             }
         }
     }
@@ -108,6 +115,7 @@ void KWayMerge() {
     }
 
     pthread_t threads[ZONE_COUNT + 1];
+    int milestoneCount = 0;
 
     auto initializeBuffer = [&]() {
         termsSeen = termsWritten = 0;
@@ -149,6 +157,7 @@ void KWayMerge() {
                 pthread_join(threads[i], nullptr);
             }
             milestoneWords << latestToken << " " << termsWritten << '\n';
+            milestoneCount++;
         }
 
         closeBuffers();
@@ -157,7 +166,9 @@ void KWayMerge() {
             initializeBuffer();
         else {
             statFile << totalTermsWritten << std::endl;
+            statFile << milestoneCount << std::endl;
             personalStatFile << totalTermsWritten << std::endl;
+            personalStatFile << milestoneCount << std::endl;
         }
     };
 
