@@ -12,7 +12,7 @@ enum {
 
 std::vector<std::string> reverseZonal = {"Body", "Infobox", "Category", "Title", "Links", "References"};
 std::vector<std::string> zoneFirstLetter = {"b", "i", "c", "t", "l", "r"};
-std::vector<double> zoneSearchWeights = {0.1, 1, 1, 10, 0.2, 0.2};
+std::vector<double> zoneSearchWeights = {0.1, 5, 5, 100, 1, 1};
 
 typedef std::map<std::string, std::vector<int>> local_data_type;
 // data[term_name] = postings list; list[i] = { doc_id, { freq_information }};
@@ -33,7 +33,7 @@ constexpr int TERMS_PER_SPLIT_FILE = 100000;
 // like internationalization are very long
 // Full stats: http://norvig.com/mayzner.html
 constexpr int MAX_WORD_LEN = 25;
-constexpr int MIN_WORD_LEN = 3;
+constexpr int MIN_WORD_LEN = 2;
 
 std::vector<std::string> mostFrequentStems = {"system", "film", "british", "york", "john", "english", "list", "small",
                                               "february", "november", "gov", "years", "use", "century", "september",

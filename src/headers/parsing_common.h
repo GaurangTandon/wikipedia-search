@@ -16,5 +16,6 @@ typedef struct memory_type {
     int checkpoint_num;
 
     data_type* alldata;
+    Preprocessor  *processor;
 } memory_type;
 

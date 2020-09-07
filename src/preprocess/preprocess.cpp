@@ -59,7 +59,7 @@ inline std::string FastTrie::getVal() {
     return (currNode == -1) ? "" : isend[currNode];
 }
 
-Preprocessor::Preprocessor() : stemmer_mutex(PTHREAD_MUTEX_INITIALIZER) {
+Preprocessor::Preprocessor() {
     // const char** list = sb_stemmer_list();
     // there is porter2 in this
 
@@ -133,7 +133,6 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
 
     std::vector<std::string> stemmedTokens;
 
-    pthread_mutex_lock(&stemmer_mutex);
     for (int left = start; left <= end; left++) {
         if (not validChar(text[left])) continue;
 
@@ -178,7 +177,6 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
 
         left = right + 1;
     }
-    pthread_mutex_unlock(&stemmer_mutex);
 
     return stemmedTokens;
 }

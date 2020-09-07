@@ -19,6 +19,7 @@ typedef std::map<int, score_value> score_container;
 typedef struct thread_data {
     score_container *docScores;
     int zone;
+    Preprocessor *processor;
 } thread_data;
 std::vector<int> zonePrefixMarkers(255, -1);
 constexpr int BOOST_FACTOR = 10;
@@ -29,7 +30,6 @@ int mileCount;
 std::vector<std::string> milestoneWords;
 std::vector<int> milestoneSizes;
 
-Preprocessor *processor;
 std::string outputDir;
 // [zone][boolean boosted]
 std::vector<std::vector<std::string>> zonalQueries(ZONE_COUNT, std::vector<std::string>(2, ""));
@@ -102,7 +102,7 @@ void *performSearch(void *dataP) {
         const auto &query = zonalQueries[data.zone][boost];
         if (query.empty()) continue;
 
-        auto tokens = processor->getStemmedTokens(query, 0, query.size() - 1);
+        auto tokens = data.processor->getStemmedTokens(query, 0, query.size() - 1);
         if (tokens.empty()) continue;
         sort(tokens.begin(), tokens.end());
 
@@ -151,10 +151,17 @@ void *performSearch(void *dataP) {
                     if (isCurrTokenReq) {
                         const int correctDocId = (prevDocId == -1) ? docId : prevDocId + docId;
 
+//                        std::cout << std::to_string(correctDocId) + " ";
                         int termFreqInDoc = findTermFreq(freqData, data.zone);
-                        auto value = sublinear_scaling(termFreqInDoc);
-                        thisTokenScores.emplace_back(value, correctDocId);
-                        actualDocCount += (termFreqInDoc > 0);
+
+                        if (correctDocId == 8662854)
+                            std::cout << termFreqInDoc << " " << freqData << std::endl;
+
+                        if (termFreqInDoc > 0) {
+                            auto value = sublinear_scaling(termFreqInDoc);
+                            thisTokenScores.emplace_back(value, correctDocId);
+                            actualDocCount += (termFreqInDoc > 0);
+                        }
 
                         prevDocId = correctDocId;
                     }
@@ -164,6 +171,8 @@ void *performSearch(void *dataP) {
                     score_value denom = log10l((score_value) totalDocCount / actualDocCount);
 
                     for (auto e : thisTokenScores) {
+                        constexpr int id = 8727168 - 1;
+
                         e.first *= denom;
                         if (boost) e.first *= BOOST_FACTOR;
 
@@ -189,6 +198,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     inputFile.ignore(std::numeric_limits<std::streamsize>::max(), ' '); // ignore ', '
     std::string query;
     getline(inputFile, query);
+    for (auto &c : query) c = Preprocessor::lowercase(c);
     extractZonalQueries(query);
 
     results_container results;
@@ -203,6 +213,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
         auto data = (thread_data *) malloc(sizeof(thread_data));
         data->zone = zoneI;
         data->docScores = new score_container();
+        data->processor = new Preprocessor();
         threads_data[zoneI] = data;
         pthread_create(&threads[zoneI], nullptr, performSearch, (void *) data);
 
@@ -216,10 +227,11 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
         auto &intermediateResults = *data.docScores;
 
         for (auto &e : intermediateResults) {
-            docScores[e.first] += e.second;
+            docScores[e.first] += e.second * zoneSearchWeights[zoneI];
         }
 
         delete data.docScores;
+        delete data.processor;
         free(threads_data[zoneI]);
 
         zoneI++;
@@ -297,7 +309,6 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 int main(int argc, char *argv[]) {
     assert(argc == 3);
 
-    processor = new Preprocessor();
     outputDir = std::string(argv[1]) + "/";
 
     std::ifstream statFile(outputDir + "stat.txt");
@@ -335,8 +346,6 @@ int main(int argc, char *argv[]) {
     for (int qI = 0; qI < queryCount; qI++) {
         readAndProcessQuery(queryFile, outputFile);
     }
-
-    delete processor;
 
     delete st;
     delete et;

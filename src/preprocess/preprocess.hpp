@@ -36,7 +36,6 @@ struct FastTrie {
 
 struct Preprocessor {
     sb_stemmer *stemmer;
-    pthread_mutex_t stemmer_mutex;
     FastTrie trie;
     FastTrie stemTrie;
     sb_symbol *commonWord;

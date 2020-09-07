@@ -8,7 +8,10 @@
 #include "../headers/parsing_common.h"
 #include "../file_handling/filehandler.cpp"
 
+std::ofstream failedFiles("fail.txt");
+
 std::vector<std::string> fileNames = {
+        "../phase2data/enwiki-20200801-pages-articles-multistream3-p88445p200509.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream10-p2336423p3046512.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream11-p3046513p3926861.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream12-p3926862p5040436.xml",
@@ -36,7 +39,6 @@ std::vector<std::string> fileNames = {
         "../phase2data/enwiki-20200801-pages-articles-multistream23-p28323661p29823660.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream23-p29823661p30503450.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream2-p30304p88444.xml",
-        "../phase2data/enwiki-20200801-pages-articles-multistream3-p88445p200509.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream4-p200510p352689.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream5-p352690p565313.xml",
         "../phase2data/enwiki-20200801-pages-articles-multistream6-p565314p892912.xml",
@@ -61,11 +63,11 @@ std::ofstream docTitlesOutput;
 struct timespec *st = new timespec(), *et = new timespec();
 int currCheck = 0;
 
-constexpr int MX_THREADS = 5000;
+constexpr int MX_THREADS = 10000;
 pthread_t threads[MX_THREADS];
 int threadCount = 0;
 
-constexpr int MX_MEM = 2000;
+constexpr int MX_MEM = 40000;
 memory_type *globalMemory;
 
 void allocate_mem() {
@@ -74,6 +76,7 @@ void allocate_mem() {
     globalMemory->size = 0;
     globalMemory->checkpoint_num = currCheck;
     globalMemory->alldata = new data_type();
+    globalMemory->processor = new Preprocessor();
 }
 
 WikiPage::WikiPage(xml::parser &p) {
@@ -99,6 +102,8 @@ WikiPage::WikiPage(xml::parser &p) {
                     inText = false;
                 }
                 if (p.name() == "page") {
+                    for (auto &c : title) c = Preprocessor::lowercase(c);
+                    for (auto &c : text) c = Preprocessor::lowercase(c);
                     return;
                 }
                 break;
@@ -123,11 +128,11 @@ const std::vector<std::string> TEXT_EXTERNAL_LINKS = {"== external links ==", "=
                                                       "== external links==", "==external links =="};
 const std::vector<std::string> TEXT_REFERENCES = {"== references ==", "==references==", "== references==",
                                                   "==references =="};
-Preprocessor *processor;
 
 inline void
-processText(data_type &all_data, const int docid, const int zone, const std::string &text, int start, int end) {
-    totalTokenCount += processor->processText(all_data, docid, zone, text, start, end);
+processText(memory_type *memory, data_type &all_data, const int docid, const int zone, const std::string &text,
+            int start, int end) {
+    totalTokenCount += memory->processor->processText(all_data, docid, zone, text, start, end);
 }
 
 int extractInfobox(const WikiPage *page, const std::string &text, const int start) {
@@ -150,7 +155,7 @@ int extractInfobox(const WikiPage *page, const std::string &text, const int star
 
     // TODO: remove this check later
     if (cnt != 0) {
-        std::cout << "!" << page->title << std::endl;
+        failedFiles << "!" << page->title << '\n';
         end = text.size() - 1;
     }
 
@@ -200,9 +205,6 @@ void extractData(memory_type *mem, WikiPage *page) {
     auto &all_data = *mem->alldata;
     std::string bodyText;
 
-    for (auto &c : text) c = Preprocessor::lowercase(c);
-    for (auto &c : page->title) c = Preprocessor::lowercase(c);
-
     for (int i = 0; i < text.size(); i++) {
         int end = -1;
         int start = i;
@@ -229,13 +231,13 @@ void extractData(memory_type *mem, WikiPage *page) {
         }
 
         if (zone != -1) {
-            processText(all_data, docid, zone, text, start, end);
+            processText(mem, all_data, docid, zone, text, start, end);
             i = end;
         }
     }
 
-    processText(all_data, docid, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
-    processText(all_data, docid, TITLE_ZONE, page->title, 0, page->title.size() - 1);
+    processText(mem, all_data, docid, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
+    processText(mem, all_data, docid, TITLE_ZONE, page->title, 0, page->title.size() - 1);
 }
 
 void parseWikiSiteInfo(xml::parser &p) {
@@ -251,7 +253,6 @@ void parseWikiSiteInfo(xml::parser &p) {
 
     assert(false);
 }
-
 
 long double timer;
 
@@ -316,6 +317,21 @@ void checkpoint() {
     allocate_mem();
 }
 
+const std::vector<std::string> skipMarkersTitle = {"wikipedia:", "file:", "category:"};
+const std::vector<std::string> skipMarkersBody = {"#redirect"};
+
+bool skipPage(const WikiPage *page) {
+    for (const auto &skipT : skipMarkersTitle) {
+        if (Preprocessor::fast_equals(page->title, skipT, 0)) return true;
+    }
+
+    for (const auto &skipB : skipMarkersBody) {
+        if (Preprocessor::fast_equals(page->text, skipB, 0)) return true;
+    }
+
+    return false;
+}
+
 void parseWikiObject(xml::parser &p) {
     p.next_expect(xml::parser::start_element, NS, "mediawiki", xml::content::complex);
 
@@ -325,6 +341,11 @@ void parseWikiObject(xml::parser &p) {
 
     while (p.peek() == xml::parser::start_element) {
         auto page = new WikiPage(p);
+
+        if (skipPage(page)) {
+            continue;
+        }
+
         globalMemory->store[globalMemory->size++] = page;
 
         if (globalMemory->size == MX_MEM) {
@@ -351,11 +372,12 @@ int main(int argc, char *argv[]) {
     docTitlesOutput.open(outputDir + "docs");
 
     try {
-        processor = new Preprocessor();
-
         allocate_mem();
+        int fileI = 1;
 
-        for (const auto &filePath : fileNames2) {
+        const auto &useFiles = fileNames2;
+
+        for (const auto &filePath : useFiles) {
             std::ifstream ifs(filePath);
             // our xml is in the namespace denoted by the xmlns attribute in the XML file
             // we don't want attributes or namespace declarations
@@ -370,8 +392,10 @@ int main(int argc, char *argv[]) {
 
             checkpoint();
 
-            std::cout << "Finished parsing the xml " << filePath << std::endl;
+            std::cout << "Finished parsing the xml " << filePath << " (" << fileI << "/" << (useFiles.size()) << ")"
+                      << std::endl;
             ifs.close();
+            fileI++;
         }
 
         for (int thread = 0; thread < threadCount; thread++) {
@@ -387,7 +411,7 @@ int main(int argc, char *argv[]) {
         file_stats << totalDocCount << '\n';
         file_stats.close();
 
-        delete processor;
+        delete globalMemory->processor;
         free(globalMemory->store);
         delete globalMemory->alldata;
         free(globalMemory);
