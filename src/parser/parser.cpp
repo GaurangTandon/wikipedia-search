@@ -321,13 +321,8 @@ const std::vector<std::string> skipMarkersTitle = {"wikipedia:", "file:", "categ
 const std::vector<std::string> skipMarkersBody = {"#redirect"};
 
 bool skipPage(const WikiPage *page) {
-    for (const auto &skipT : skipMarkersTitle) {
-        if (Preprocessor::fast_equals(page->title, skipT, 0)) return true;
-    }
-
-    for (const auto &skipB : skipMarkersBody) {
-        if (Preprocessor::fast_equals(page->text, skipB, 0)) return true;
-    }
+    if (Preprocessor::fast_equals(page->title, skipMarkersTitle, 0)) return true;
+    if (Preprocessor::fast_equals(page->text, skipMarkersBody, 0)) return true;
 
     return false;
 }

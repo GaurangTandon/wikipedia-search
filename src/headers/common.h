@@ -27,8 +27,6 @@ typedef std::map<std::string, postings_list_type> data_type;
     clock_gettime(CLOCK_MONOTONIC, et); \
     timer = calc_time(st, et);
 
-constexpr int TERMS_PER_SPLIT_FILE = 100000;
-
 // wouldn't recommend going below 25 because few popular words
 // like internationalization are very long
 // Full stats: http://norvig.com/mayzner.html

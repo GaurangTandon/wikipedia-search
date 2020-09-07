@@ -9,6 +9,9 @@ enum {
     FREQ_BUFF, ID_BUFF, MAIN_BUFF, BUFF_COUNT
 };
 
+constexpr int DOCS_PER_SPLIT_FILE = 1000000;
+constexpr int TERMS_PER_SPLIT_FILE = 100000;
+
 std::string outputDir;
 int fileCount;
 
@@ -135,9 +138,10 @@ void KWayMerge() {
 
     pthread_t threads[BUFF_COUNT];
     int milestoneCount = 0;
+    int docsSeen = 0;
 
     auto initializeBuffer = [&]() {
-        termsSeen = termsWritten = 0;
+        docsSeen = termsSeen = termsWritten = 0;
         latestToken = "";
 
         auto str = std::to_string(currentMergedCount);
@@ -208,6 +212,7 @@ void KWayMerge() {
             currTokenId.pop();
             currFileCount++;
         }
+        docsSeen += currTokenDocCount;
 
         bool actualWrite = currTokenDocCount > 4;
         perTermToWrite[termsSeen] = actualWrite;
@@ -230,7 +235,7 @@ void KWayMerge() {
         }
 
         termsSeen++;
-        if (termsSeen >= TERMS_PER_SPLIT_FILE) {
+        if (termsSeen >= TERMS_PER_SPLIT_FILE or docsSeen >= DOCS_PER_SPLIT_FILE) {
             flushBuffers();
         }
     }

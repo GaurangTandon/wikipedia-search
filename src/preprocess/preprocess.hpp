@@ -52,9 +52,9 @@ struct Preprocessor {
 
     int processText(data_type &all_data, int docid, int zone, const std::string &text, int start, int end);
 
-    static bool fast_equals(const std::string &src, const std::string &target, int pos);
+    inline static bool fast_equals(const std::string &src, const std::string &target, int pos);
 
-    static bool fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos);
+    inline static bool fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos);
 
     std::vector<std::string> getStemmedTokens(const std::string &text, int start, int end);
 

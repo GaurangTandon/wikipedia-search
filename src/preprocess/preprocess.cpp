@@ -197,7 +197,7 @@ Preprocessor::processText(data_type &alldata, const int docid, const int zone, c
     return stemmedTokens.size();
 }
 
-bool Preprocessor::fast_equals(const std::string &src, const std::string &target, int pos) {
+inline bool Preprocessor::fast_equals(const std::string &src, const std::string &target, int pos) {
     int j = 0, i = pos;
 
     while (i < src.size()) {
@@ -209,7 +209,7 @@ bool Preprocessor::fast_equals(const std::string &src, const std::string &target
     return false;
 }
 
-bool Preprocessor::fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos) {
+inline bool Preprocessor::fast_equals(const std::string &src, const std::vector<std::string> &targets, int pos) {
     for (const auto &target: targets) {
         if (fast_equals(src, target, pos)) {
             return true;
