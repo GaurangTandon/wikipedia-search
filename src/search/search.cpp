@@ -15,8 +15,9 @@ typedef long double score_value;
 typedef std::pair<score_value, int> score_type; // { score, page-id }
 // least scoring element at the top so it can be popped
 typedef std::priority_queue<score_type, std::vector<score_type>, std::greater<>> results_container;
+typedef std::map<int, score_value> score_container;
 typedef struct thread_data {
-    results_container *results;
+    score_container *docScores;
     int zone;
 } thread_data;
 std::vector<int> zonePrefixMarkers(255, -1);
@@ -96,7 +97,6 @@ inline int getIndex(const std::string &token) {
 // PRECONDITION: query is not empty
 void *performSearch(void *dataP) {
     auto &data = *((thread_data *) dataP);
-    data.results = new results_container();
 
     for (int boost = 0; boost < 2; boost++) {
         const auto &query = zonalQueries[data.zone][boost];
@@ -104,6 +104,7 @@ void *performSearch(void *dataP) {
 
         auto tokens = processor->getStemmedTokens(query, 0, query.size() - 1);
         if (tokens.empty()) continue;
+        sort(tokens.begin(), tokens.end());
 
         int prevFile = -1;
 
@@ -129,6 +130,8 @@ void *performSearch(void *dataP) {
 
             std::vector<score_type> thisTokenScores;
             while (readCount < readLim) {
+                readCount++;
+
                 std::string currToken;
                 mainBuff >> currToken;
                 int docCount;
@@ -163,15 +166,13 @@ void *performSearch(void *dataP) {
                     for (auto e : thisTokenScores) {
                         e.first *= denom;
                         if (boost) e.first *= BOOST_FACTOR;
-                        data.results->push(e);
 
-                        if (data.results->size() > K) data.results->pop();
+                        (*data.docScores)[e.second] += e.first;
                     }
 
                     break;
                 }
 
-                readCount++;
             }
         }
     }
@@ -199,33 +200,27 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     thread_data *threads_data[ZONE_COUNT];
 
     for (const auto &zone : zonalQueries) {
-        if (not zone.empty()) {
-            auto data = (thread_data *) malloc(sizeof(thread_data));
-            data->zone = zoneI;
-            threads_data[zoneI] = data;
-            pthread_create(&threads[zoneI], nullptr, performSearch, (void *) data);
-        }
+        auto data = (thread_data *) malloc(sizeof(thread_data));
+        data->zone = zoneI;
+        data->docScores = new score_container();
+        threads_data[zoneI] = data;
+        pthread_create(&threads[zoneI], nullptr, performSearch, (void *) data);
 
         zoneI++;
     }
 
     zoneI = 0;
     for (const auto &zone : zonalQueries) {
-        if (not zone.empty()) {
-            pthread_join(threads[zoneI], nullptr);
-            auto &data = *threads_data[zoneI];
-            auto &intermediateResults = data.results;
+        pthread_join(threads[zoneI], nullptr);
+        auto &data = *threads_data[zoneI];
+        auto &intermediateResults = *data.docScores;
 
-            while (not intermediateResults->empty()) {
-                auto res = intermediateResults->top();
-                intermediateResults->pop();
-                score_value newScore = res.first * zoneSearchWeights[zoneI];
-                docScores[res.second] += newScore;
-            }
-
-            delete intermediateResults;
-            free(threads_data[zoneI]);
+        for (auto &e : intermediateResults) {
+            docScores[e.first] += e.second;
         }
+
+        delete data.docScores;
+        free(threads_data[zoneI]);
 
         zoneI++;
     }
@@ -233,6 +228,12 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     for (auto &e : docScores) {
         results.push({e.second, e.first});
         if (results.size() > K) results.pop();
+    }
+
+    if (results.empty()) {
+        for (int i = 0; i < K; i++) {
+            results.push({0, i});
+        }
     }
 
     // sorted from most score->least score
