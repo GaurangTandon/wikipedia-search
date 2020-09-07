@@ -18,6 +18,7 @@ struct FastTrie {
     static constexpr int char_index(char c);
 
     FastTrie();
+    ~FastTrie();
 
     static inline std::vector<int> get_def();
 

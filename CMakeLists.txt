@@ -12,7 +12,6 @@ include_directories(src/bzip2)
 
 SET(OBJS
     src/libstemmer_c/libstemmer.o
-    src/bzip2/libbz2.a
     /usr/local/lib/libstudxml.a)
 
 SET_SOURCE_FILES_PROPERTIES(
@@ -22,7 +21,7 @@ SET_SOURCE_FILES_PROPERTIES(
         GENERATED true
 )
 
-add_executable(wikipedia_search
+add_executable(indexer
         ${OBJS}
         src/parser/parser.cpp)
 

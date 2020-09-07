@@ -22,7 +22,7 @@ typedef struct thread_data {
     Preprocessor *processor;
 } thread_data;
 std::vector<int> zonePrefixMarkers(255, -1);
-constexpr int BOOST_FACTOR = 10;
+constexpr int BOOST_FACTOR = 100;
 
 int totalDocCount;
 int uniqueTokensCount;
@@ -336,8 +336,9 @@ int main(int argc, char *argv[]) {
     zonePrefixMarkers['l'] = EXTERNAL_LINKS_ZONE;
 
     char *queryFilePath = argv[2];
+    auto queryFilePathStr = std::string(queryFilePath);
 
-    std::ifstream queryFile(queryFilePath);
+    std::ifstream queryFile(queryFilePathStr);
     std::ofstream outputFile("queries_op.txt");
 
     int queryCount;

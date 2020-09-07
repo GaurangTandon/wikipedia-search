@@ -12,6 +12,11 @@ FastTrie::FastTrie() {
     isend = {""};
 }
 
+FastTrie::~FastTrie() {
+    trans.clear();
+    isend.clear();
+}
+
 inline std::vector<int> FastTrie::get_def() {
     return std::vector<int>(N, -1);
 }

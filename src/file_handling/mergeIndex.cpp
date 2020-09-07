@@ -101,6 +101,7 @@ void KWayMerge() {
     for (int i = 0; i < BUFF_COUNT; i++) {
         readBuffers[i] = (std::ifstream **) malloc(sizeof(std::ifstream *) * fileCount);
     }
+    // std::cout << BUFF_COUNT * fileCount << std::endl; 4506
 
     for (auto i = 0; i < fileCount; i++) {
         auto iStr = std::to_string(i);
@@ -113,6 +114,9 @@ void KWayMerge() {
         tempBuff >> totalSizes[i];
         std::string token;
         tempBuff >> token;
+//        if (i == 339) {
+//            std::cout << totalSizes[i] << "a" << token << "b" << token.size() << std::endl;
+//        }
         currTokenId.emplace(token, i);
     }
 
@@ -196,6 +200,12 @@ void KWayMerge() {
 
     initializeBuffer();
 
+    if (currTokenId.top().first.empty()) {
+        std::cout << "oh";
+        std::cout << currTokenId.top().second << std::endl;
+        exit(5);
+    }
+
     while (not currTokenId.empty()) {
         auto smallestToken = currTokenId.top().first;
         if (latestToken.empty()) latestToken = smallestToken;
@@ -209,6 +219,7 @@ void KWayMerge() {
             (*readBuffers[MAIN_BUFF][fileN]) >> docCountForThisFile;
             perTermDocCount[termsSeen][currFileCount] = docCountForThisFile;
             currTokenDocCount += docCountForThisFile;
+
             currTokenId.pop();
             currFileCount++;
         }
