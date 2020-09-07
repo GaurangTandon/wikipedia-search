@@ -140,19 +140,26 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
         trie.start(text[left]);
         stemTrie.start(text[left]);
 
-        bool hasNumber = isnum(text[left]);
+        bool startsNum = isnum(text[left]);
+        bool hasNumber = startsNum;
+        bool hasAlpha = not startsNum;
         int right = left;
+
         while (right < end and validChar(text[right + 1])) {
             right++;
             trie.next(text[right]);
             stemTrie.next(text[right]);
-            hasNumber = hasNumber or isnum(text[right]);
+            bool numHaiKya = isnum(text[right]);
+            hasNumber = hasNumber or numHaiKya;
+            hasAlpha = hasAlpha or (not numHaiKya);
         }
 
         int word_len = right - left + 1;
+        bool dontProcess =
+                word_len > MAX_WORD_LEN or trie.is_end_string() or word_len < MIN_WORD_LEN or (startsNum and hasAlpha);
 
         // >= 2 since a single letter word is 1. too vague 2. gets stemmed into an empty string by stemmer
-        if (word_len <= MAX_WORD_LEN and not trie.is_end_string() and word_len >= MIN_WORD_LEN) {
+        if (not dontProcess) {
             for (int i = 0; i < word_len; i++) {
                 commonWord[i] = text[i + left];
             }
