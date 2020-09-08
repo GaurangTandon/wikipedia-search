@@ -423,7 +423,7 @@ int main(int argc, char *argv[]) {
         allocate_mem();
         int fileI = 1;
 
-        const auto &useFiles = fileNames;
+        const auto &useFiles = fileNames2;
 
         for (const auto &filePath : useFiles) {
             std::ifstream ifs(filePath);

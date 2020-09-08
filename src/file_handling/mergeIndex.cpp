@@ -9,8 +9,8 @@ enum {
     FREQ_BUFF, ID_BUFF, MAIN_BUFF, BUFF_COUNT
 };
 
-constexpr int DOCS_PER_SPLIT_FILE = 1000000;
-constexpr int TERMS_PER_SPLIT_FILE = 100000;
+constexpr int DOCS_PER_SPLIT_FILE = 10000;
+constexpr int TERMS_PER_SPLIT_FILE = 1000;
 
 std::string outputDir;
 int fileCount;
@@ -144,9 +144,13 @@ void KWayMerge() {
     int milestoneCount = 0;
     int docsSeen = 0;
 
-    auto initializeBuffer = [&]() {
+    auto resetVars = [&]() {
         docsSeen = termsSeen = termsWritten = 0;
         latestToken = "";
+    };
+
+    auto initializeBuffer = [&]() {
+        resetVars();
 
         auto str = std::to_string(currentMergedCount);
         writeBuffers[FREQ_BUFF] = new std::ofstream(outputDir + "mif" + str);
@@ -170,30 +174,33 @@ void KWayMerge() {
     };
 
     auto flushBuffers = [&](bool reInit = true) {
-        if (termsWritten > 0) {
-            for (int buff = 0; buff < BUFF_COUNT - 1; buff++) {
-                auto threadData = new readWriteType();
-                threadData->buff = buff;
-                threadData->termCount = termsSeen;
-                threadData->docCount = perTermDocCount;
-                threadData->fileNumbers = perTermFileNumbers;
-                threadData->perTermFileCount = perTermFileCount;
-                threadData->toWrite = perTermToWrite;
-                pthread_create(&threads[buff], nullptr, readAndWriteSequential, threadData);
-            }
-            for (int buff = 0; buff < BUFF_COUNT - 1; buff++) {
-                pthread_join(threads[buff], nullptr);
-            }
+        for (int buff = 0; buff < BUFF_COUNT - 1; buff++) {
+            auto threadData = new readWriteType();
+            threadData->buff = buff;
+            threadData->termCount = termsSeen;
+            threadData->docCount = perTermDocCount;
+            threadData->fileNumbers = perTermFileNumbers;
+            threadData->perTermFileCount = perTermFileCount;
+            threadData->toWrite = perTermToWrite;
+            pthread_create(&threads[buff], nullptr, readAndWriteSequential, threadData);
+        }
+        for (int buff = 0; buff < BUFF_COUNT - 1; buff++) {
+            pthread_join(threads[buff], nullptr);
+        }
 
+        if (termsWritten > 0) {
             milestoneWords << latestToken << " " << termsWritten << '\n';
             milestoneCount++;
         }
 
-        closeBuffers();
+        if (reInit) {
+            if (termsWritten > 0) {
+                closeBuffers();
+                initializeBuffer();
+            } else resetVars();
+        } else {
+            if (termsWritten > 0) closeBuffers();
 
-        if (reInit)
-            initializeBuffer();
-        else {
             statFile << totalTermsWritten << std::endl;
             statFile << milestoneCount << std::endl;
             personalStatFile << totalTermsWritten << std::endl;
@@ -204,14 +211,12 @@ void KWayMerge() {
     initializeBuffer();
 
     if (currTokenId.top().first.empty()) {
-        std::cout << "oh";
         std::cout << currTokenId.top().second << std::endl;
         exit(5);
     }
 
     while (not currTokenId.empty()) {
         auto smallestToken = currTokenId.top().first;
-        if (latestToken.empty()) latestToken = smallestToken;
 
         int currTokenDocCount = 0;
         auto &currFileCount = perTermFileCount[termsSeen] = 0;
@@ -244,6 +249,7 @@ void KWayMerge() {
         }
 
         if (actualWrite) {
+            if (latestToken.empty()) latestToken = smallestToken;
             *writeBuffers[MAIN_BUFF] << smallestToken << ' ' << currTokenDocCount << ' ';
             termsWritten++;
         }

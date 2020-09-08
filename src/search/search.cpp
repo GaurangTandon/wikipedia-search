@@ -154,7 +154,7 @@ void *performSearch(void *dataP) {
 //                        std::cout << std::to_string(correctDocId) + " ";
                         int termFreqInDoc = findTermFreq(freqData, data.zone);
 
-                        if (correctDocId == 8662854)
+                        if (correctDocId == 6619)
                             std::cout << termFreqInDoc << " " << freqData << std::endl;
 
                         if (termFreqInDoc > 0) {
@@ -316,6 +316,7 @@ int main(int argc, char *argv[]) {
     statFile >> totalDocCount;
     statFile >> uniqueTokensCount;
     statFile >> mileCount;
+    if (!statFile) exit(10);
 
     std::ifstream milestonesFile(outputDir + "milestone.txt");
     milestoneWords.reserve(mileCount);
