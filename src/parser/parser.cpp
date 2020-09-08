@@ -51,6 +51,9 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
     idBuff.close();
     mainBuff.close();
     freqBuffer.close();
+    if (!idBuff) exit(1);
+    if (!mainBuff) exit(2);
+    if (!freqBuffer) exit(3);
 }
 
 std::ofstream failedFiles("fail.txt");
@@ -101,8 +104,8 @@ const std::vector<std::string> fileNames2 = {
  */
 
 const std::string NS = "http://www.mediawiki.org/xml/export-0.10/";
-int totalTokenCount = 0;
-int totalDocCount = 0;
+long long totalTokenCount = 0;
+long long totalDocCount = 0;
 std::ofstream docTitlesOutput;
 
 struct timespec *st = new timespec(), *et = new timespec();
@@ -112,7 +115,7 @@ constexpr int MX_THREADS = 10000;
 pthread_t threads[MX_THREADS];
 int threadCount = 0;
 
-constexpr int MX_MEM = 10; // 40000;
+constexpr int MX_MEM = 500;// 40000;
 memory_type *globalMemory;
 
 void allocate_mem() {
@@ -412,6 +415,7 @@ int main(int argc, char *argv[]) {
     statFile = std::string(argv[2]);
 
     docTitlesOutput.open(outputDir + "docs");
+    if (!docTitlesOutput) exit(10);
 
     try {
         allocate_mem();
@@ -447,11 +451,13 @@ int main(int argc, char *argv[]) {
         std::ofstream stats(statFile, std::ios_base::out);
         stats << totalTokenCount << '\n';
         stats.close();
+        if (!stats) exit(5);
 
         std::ofstream file_stats(outputDir + "stat.txt", std::ios_base::out);
         file_stats << currCheck << '\n';
         file_stats << totalDocCount << '\n';
         file_stats.close();
+        if (!file_stats) exit(6);
 
         delete globalMemory->processor;
         free(globalMemory->store);
@@ -462,6 +468,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    docTitlesOutput.close();
+    if (!docTitlesOutput) exit(4);
     clock_gettime(CLOCK_MONOTONIC, ett);
     long double global_time = calc_time(stt, ett);
     std::cout << "Total time taken " << global_time << std::endl;

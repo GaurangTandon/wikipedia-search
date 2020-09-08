@@ -9,8 +9,8 @@ enum {
     FREQ_BUFF, ID_BUFF, MAIN_BUFF, BUFF_COUNT
 };
 
-constexpr int DOCS_PER_SPLIT_FILE = 1000000;
-constexpr int TERMS_PER_SPLIT_FILE = 100000;
+constexpr int DOCS_PER_SPLIT_FILE = 10000; // 1000000;
+constexpr int TERMS_PER_SPLIT_FILE = 3000; // 100000;
 
 std::string outputDir;
 int fileCount;
@@ -109,14 +109,14 @@ void KWayMerge() {
         readBuffers[FREQ_BUFF][i] = new std::ifstream(outputDir + "if" + iStr);
         readBuffers[ID_BUFF][i] = new std::ifstream(outputDir + "iid" + iStr);
         readBuffers[MAIN_BUFF][i] = new std::ifstream(outputDir + "i" + iStr);
+        for (size_t j = 0; j < BUFF_COUNT; j++)
+            if (!(*readBuffers[j][i])) exit(3);
+
         auto &tempBuff = *readBuffers[MAIN_BUFF][i];
 
         tempBuff >> totalSizes[i];
         std::string token;
         tempBuff >> token;
-//        if (i == 339) {
-//            std::cout << totalSizes[i] << "a" << token << "b" << token.size() << std::endl;
-//        }
         currTokenId.emplace(token, i);
     }
 
@@ -152,6 +152,8 @@ void KWayMerge() {
         writeBuffers[FREQ_BUFF] = new std::ofstream(outputDir + "mif" + str);
         writeBuffers[ID_BUFF] = new std::ofstream(outputDir + "miids" + str);
         writeBuffers[MAIN_BUFF] = new std::ofstream(outputDir + "mimain" + str);
+        for (size_t i = 0; i < BUFF_COUNT; i++)
+            if (!(*writeBuffers[i])) exit(5);
         currentMergedCount++;
     };
 
@@ -162,6 +164,7 @@ void KWayMerge() {
         std::cout << totalTermsWritten << std::endl;
         for (int i = 0; i < BUFF_COUNT; i++) {
             writeBuffers[i]->close();
+            if (!(*writeBuffers[i])) exit(6);
             delete writeBuffers[i];
         }
     };
@@ -266,6 +269,7 @@ void KWayMerge() {
     for (int i = 0; i < BUFF_COUNT; i++) {
         for (int j = 0; j < fileCount; j++) {
             readBuffers[i][j]->close();
+            if (!(*readBuffers[i][j])) exit(7);
             delete readBuffers[i][j];
         }
     }
@@ -289,12 +293,16 @@ int main(int argc, char *argv[]) {
     statFileName = std::string(argv[2]);
 
     std::ifstream countFile(outputDir + "stat.txt");
-    countFile >> fileCount;
+    if (!countFile) exit(1);
+    if (!(countFile >> fileCount)) exit(1);
     countFile.close();
 
     milestoneWords.open(outputDir + "milestone.txt");
+    if (!milestoneWords) exit(2);
     statFile.open(statFileName, std::ios_base::out | std::ios_base::app);
+    if (!statFile) exit(2);
     personalStatFile.open(outputDir + "stat.txt", std::ios_base::out | std::ios_base::app);
+    if (!personalStatFile) exit(2);
 
     KWayMerge();
 
