@@ -2,19 +2,15 @@
 
 // ignoring apostrophe for now, valid word is just a-z, $, _, 0-9
 
+std::vector<std::vector<int>> FastTrie::trans = {FastTrie::get_def()};
+std::vector<bool> FastTrie::isend = {false};
+
 constexpr inline int FastTrie::char_index(char c) {
     return c - 'a';
 }
 
-
 FastTrie::FastTrie() {
-    trans = {get_def()};
-    isend = {""};
-}
-
-FastTrie::~FastTrie() {
-    trans.clear();
-    isend.clear();
+    currNode = 0;
 }
 
 inline std::vector<int> FastTrie::get_def() {
@@ -24,7 +20,7 @@ inline std::vector<int> FastTrie::get_def() {
 inline int FastTrie::new_node() {
     int i = trans.size();
     trans.push_back(get_def());
-    isend.push_back("");
+    isend.push_back(false);
     return i;
 }
 
@@ -33,7 +29,7 @@ inline void FastTrie::start(char c) {
     next(c);
 }
 
-void FastTrie::insert(std::string &str, std::string val) {
+void FastTrie::insert(std::string &str, bool val) {
     int curr = 0;
 
     for (auto c : str) {
@@ -57,11 +53,7 @@ inline void FastTrie::next(char move) {
 }
 
 inline bool FastTrie::is_end_string() {
-    return currNode != -1 and isend[currNode].size() > 0;
-}
-
-inline std::string FastTrie::getVal() {
-    return (currNode == -1) ? "" : isend[currNode];
+    return currNode != -1 and isend[currNode];
 }
 
 Preprocessor::Preprocessor() {
@@ -72,42 +64,38 @@ Preprocessor::Preprocessor() {
     assert(stemmer != nullptr);
 
     trie = FastTrie();
-    stemTrie = FastTrie();
     commonWord = (sb_symbol *) malloc(MAX_WORD_LEN * sizeof(sb_symbol));
-
-    std::ifstream stopwords_file("preprocess/stopwords_improved.txt", std::ios_base::in);
-
-    int count;
-    stopwords_file >> count;
-
-    assert(count < 1000);
-    // OPTIMIZATION: read character by character and inline the trie.insert thing
-    //  instead of using stream/based file i/o
-    // but as it is done only threadCount times, it is probably useless to optimize this
-    while (count--) {
-        std::string word;
-        stopwords_file >> word;
-        trie.insert(word);
-    }
-
-    stopwords_file.close();
-
-    for (auto &word : mostFrequentStems) {
-        stemTrie.insert(word, stemming(reinterpret_cast<const sb_symbol *>(word.c_str()), word.size()));
-    }
 }
+
 
 Preprocessor::~Preprocessor() {
     sb_stemmer_delete(stemmer);
     free(commonWord);
 }
 
+inline void Preprocessor::init() {
+    std::ifstream stopwords_file("preprocess/stopwords_improved.txt", std::ios_base::in);
+    if (!stopwords_file) exit(11);
+
+    int count;
+    stopwords_file >> count;
+    if (count <= 0 or count > 1000) exit(11);
+
+    while (count--) {
+        std::string word;
+        stopwords_file >> word;
+        if (!stopwords_file) exit(11);
+        FastTrie::insert(word);
+    }
+
+    stopwords_file.close();
+    if (!stopwords_file) exit(11);
+}
+
 inline constexpr bool Preprocessor::validChar(char c) {
     if (c >= 'a' and c <= 'z') return true;
     if (c >= 'A' and c <= 'Z') return true;
     if (c >= '0' and c <= '9') return true;
-//    if (c == '_') return true;
-//    if (c == '$') return true;
 
     return false;
 }
@@ -142,7 +130,6 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
         if (not validChar(text[left])) continue;
 
         trie.start(text[left]);
-        stemTrie.start(text[left]);
 
         bool startsNum = isnum(text[left]);
         bool hasNumber = startsNum;
@@ -152,7 +139,6 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
         while (right < end and validChar(text[right + 1])) {
             right++;
             trie.next(text[right]);
-            stemTrie.next(text[right]);
             bool numHaiKya = isnum(text[right]);
             hasNumber = hasNumber or numHaiKya;
             hasAlpha = hasAlpha or (not numHaiKya);
@@ -168,12 +154,8 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
                 commonWord[i] = text[i + left];
             }
 
-            auto stemmedVal = stemTrie.getVal();
-
             if (hasNumber) { // don't stem words containing numbers
                 stemmedTokens.emplace_back(text.substr(left, word_len));
-            } else if (stemmedVal.size() > 0) {
-                stemmedTokens.emplace_back(stemmedVal);
             } else {
                 const auto &str = stemming(commonWord, word_len);
                 stemmedTokens.emplace_back(str);

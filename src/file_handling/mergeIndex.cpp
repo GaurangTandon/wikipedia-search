@@ -9,8 +9,8 @@ enum {
     FREQ_BUFF, ID_BUFF, MAIN_BUFF, BUFF_COUNT
 };
 
-constexpr int DOCS_PER_SPLIT_FILE = 10000; // 1000000;
-constexpr int TERMS_PER_SPLIT_FILE = 3000; // 100000;
+constexpr int DOCS_PER_SPLIT_FILE = 1000000;
+constexpr int TERMS_PER_SPLIT_FILE = 100000;
 
 std::string outputDir;
 int fileCount;

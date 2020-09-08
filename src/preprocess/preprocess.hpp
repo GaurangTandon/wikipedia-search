@@ -11,39 +11,35 @@ struct FastTrie {
     static constexpr int N = 26;
     static constexpr int root = 0;
 
-    std::vector<std::vector<int>> trans;
+    static std::vector<std::vector<int>> trans;
+    static std::vector<bool> isend;
     int currNode;
-    std::vector<std::string> isend;
 
     static constexpr int char_index(char c);
 
     FastTrie();
-    ~FastTrie();
 
     static inline std::vector<int> get_def();
-
-    inline int new_node();
-
-    void insert(std::string &str, std::string val = "hold");
+    static inline int new_node();
+    static void insert(std::string &str, bool val = true);
 
     void start(char c);
 
     inline void next(char);
 
     inline bool is_end_string();
-
-    inline std::string getVal();
 };
 
 struct Preprocessor {
     sb_stemmer *stemmer;
     FastTrie trie;
-    FastTrie stemTrie;
     sb_symbol *commonWord;
 
     Preprocessor();
 
     ~Preprocessor();
+
+    static inline void init();
 
     static inline constexpr char lowercase(char c);
 

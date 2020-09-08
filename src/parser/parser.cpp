@@ -115,7 +115,7 @@ constexpr int MX_THREADS = 10000;
 pthread_t threads[MX_THREADS];
 int threadCount = 0;
 
-constexpr int MX_MEM = 500;// 40000;
+constexpr int MX_MEM = 30000;
 memory_type *globalMemory;
 
 void allocate_mem() {
@@ -417,11 +417,13 @@ int main(int argc, char *argv[]) {
     docTitlesOutput.open(outputDir + "docs");
     if (!docTitlesOutput) exit(10);
 
+    Preprocessor::init();
+
     try {
         allocate_mem();
         int fileI = 1;
 
-        const auto &useFiles = fileNames2;
+        const auto &useFiles = fileNames;
 
         for (const auto &filePath : useFiles) {
             std::ifstream ifs(filePath);

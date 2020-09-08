@@ -33,15 +33,5 @@ typedef std::map<std::string, postings_list_type> data_type;
 constexpr int MAX_WORD_LEN = 25;
 constexpr int MIN_WORD_LEN = 2;
 
-std::vector<std::string> mostFrequentStems = {"system", "film", "british", "york", "john", "english", "list", "small",
-                                              "february", "november", "gov", "years", "use", "century", "september",
-                                              "left", "center", "august", "many", "people", "war", "december",
-                                              "october", "march", "state", "google", "national", "june", "january",
-                                              "live", "april", "july", "city", "dead", "press", "one",
-                                              "location", "text", "can", "time", "used", "issue",
-                                              "states", "website", "thumb", "two", "university", "united",
-                                              "math", "history", "style", "american", "world", "one", "may", "status",
-                                              "html", "category", "books"};
-
 
 #endif
