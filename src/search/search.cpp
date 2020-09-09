@@ -9,7 +9,6 @@
 #include <queue>
 #include <cmath>
 #include "../preprocess/preprocess.cpp"
-#include "../file_handling/zip_operations.cpp"
 
 typedef long double score_value;
 typedef std::pair<score_value, int> score_type; // { score, page-id }
@@ -25,7 +24,6 @@ std::vector<int> zonePrefixMarkers(255, -1);
 constexpr int BOOST_FACTOR = 100;
 
 int totalDocCount;
-int uniqueTokensCount;
 int mileCount;
 std::vector<std::string> milestoneWords;
 std::vector<int> milestoneSizes;
@@ -40,7 +38,8 @@ constexpr inline score_value sublinear_scaling(int termFreq) {
 }
 
 int findTermFreq(const std::string &freqStr, int zone) {
-    int num = 0, i = 0;
+    int num = 0;
+    size_t i = 0;
 #define numgen while (i < freqStr.size() and Preprocessor::isnum(freqStr[i])) { \
         num = num * 10 + (freqStr[i] - '0'); \
         i++; \
@@ -52,7 +51,8 @@ int findTermFreq(const std::string &freqStr, int zone) {
         return num;
     }
 
-    while (i < freqStr.size() and freqStr[i] != zoneFirstLetter[zone][0]) {
+    char x = zoneFirstLetter[zone][0];
+    while (i < freqStr.size() and freqStr[i] != x) {
         i++;
     }
 
@@ -73,7 +73,8 @@ void extractZonalQueries(const std::string &query) {
     for (int i = 0; i < query.size(); i++) {
         auto c = query[i];
 
-        if (zonePrefixMarkers[c] > -1 and i < query.size() - 1 and query[i + 1] == QUERY_SEP) {
+        if (c < zonePrefixMarkers.size() and c >= 0 and zonePrefixMarkers[c] > -1 and i < query.size() - 1 and
+            query[i + 1] == QUERY_SEP) {
             currZone = zonePrefixMarkers[c];
             i++;
             continue;
@@ -116,6 +117,17 @@ void *performSearch(void *dataP) {
             int fileNum = getIndex(token);
 
             if (prevFile != fileNum) {
+                if (prevFile != -1) {
+                    mainBuff.close();
+                    idBuff.close();
+                    freqBuff.close();
+                    if (!mainBuff) exit(61);
+                    if (!idBuff) exit(62);
+                    if (!freqBuff) exit(63);
+                }
+                assert(fileNum >= 0);
+                assert(fileNum < milestoneSizes.size());
+
                 auto str = std::to_string(fileNum);
 
                 mainBuff = std::ifstream(outputDir + "mimain" + str);
@@ -154,9 +166,6 @@ void *performSearch(void *dataP) {
 //                        std::cout << std::to_string(correctDocId) + " ";
                         int termFreqInDoc = findTermFreq(freqData, data.zone);
 
-                        if (correctDocId == 6619)
-                            std::cout << termFreqInDoc << " " << freqData << std::endl;
-
                         if (termFreqInDoc > 0) {
                             auto value = sublinear_scaling(termFreqInDoc);
                             thisTokenScores.emplace_back(value, correctDocId);
@@ -168,11 +177,10 @@ void *performSearch(void *dataP) {
                 }
 
                 if (isCurrTokenReq and actualDocCount > 0) {
+                    assert(totalDocCount > 0);
                     score_value denom = log10l((score_value) totalDocCount / actualDocCount);
 
                     for (auto e : thisTokenScores) {
-                        constexpr int id = 8727168 - 1;
-
                         e.first *= denom;
                         if (boost) e.first *= BOOST_FACTOR;
 
@@ -181,8 +189,16 @@ void *performSearch(void *dataP) {
 
                     break;
                 }
-
             }
+        }
+
+        if (prevFile != -1) {
+            mainBuff.close();
+            idBuff.close();
+            freqBuff.close();
+            if (!mainBuff) exit(64);
+            if (!idBuff) exit(65);
+            if (!freqBuff) exit(66);
         }
     }
 
@@ -198,6 +214,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     inputFile.ignore(std::numeric_limits<std::streamsize>::max(), ' '); // ignore ', '
     std::string query;
     getline(inputFile, query);
+    if (!inputFile) exit(70);
     for (auto &c : query) c = Preprocessor::lowercase(c);
     extractZonalQueries(query);
 
@@ -211,18 +228,22 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
     for (const auto &zone : zonalQueries) {
         auto data = (thread_data *) malloc(sizeof(thread_data));
+        assert(data != nullptr);
         data->zone = zoneI;
         data->docScores = new score_container();
         data->processor = new Preprocessor();
+        assert(data->processor != nullptr and data->docScores != nullptr);
         threads_data[zoneI] = data;
-        pthread_create(&threads[zoneI], nullptr, performSearch, (void *) data);
+        int res = pthread_create(&threads[zoneI], nullptr, performSearch, (void *) data);
+        assert(res == 0);
 
         zoneI++;
     }
 
     zoneI = 0;
     for (const auto &zone : zonalQueries) {
-        pthread_join(threads[zoneI], nullptr);
+        int res = pthread_join(threads[zoneI], nullptr);
+        assert(res == 0);
         auto &data = *threads_data[zoneI];
         auto &intermediateResults = *data.docScores;
 
@@ -281,6 +302,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
         std::ifstream docTitleFile(outputDir + "docs", std::ios_base::in);
 
 #define ignoreLine docTitleFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        if (!docTitleFile) exit(90);
 
         int currDocArrayIdx = 0;
         for (int id = 0; id < totalDocCount; id++) {
@@ -292,6 +314,9 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
                 if (currDocArrayIdx == K) break;
             }
         }
+
+        docTitleFile.close();
+        if (!docTitleFile) exit(91);
     }
 
     int i = 0;
@@ -304,6 +329,7 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
     end_time
 
     outputFile << timer << ", " << (timer / K) << "\n\n";
+
 }
 
 int main(int argc, char *argv[]) {
@@ -314,7 +340,7 @@ int main(int argc, char *argv[]) {
     std::ifstream statFile(outputDir + "stat.txt");
     statFile >> totalDocCount; // first read is actually file count
     statFile >> totalDocCount;
-    statFile >> uniqueTokensCount;
+    statFile >> mileCount;
     statFile >> mileCount;
     if (!statFile) exit(10);
 
@@ -348,6 +374,11 @@ int main(int argc, char *argv[]) {
     for (int qI = 0; qI < queryCount; qI++) {
         readAndProcessQuery(queryFile, outputFile);
     }
+
+    queryFile.close();
+    if (!queryFile) exit(91);
+    outputFile.close();
+    if (!outputFile) exit(92);
 
     delete st;
     delete et;

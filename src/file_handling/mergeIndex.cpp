@@ -1,4 +1,5 @@
-#include "zip_operations.cpp"
+#include "../headers/common.h"
+#include <iostream>
 #include <fstream>
 #include <vector>
 #include <ctime>
@@ -9,8 +10,8 @@ enum {
     FREQ_BUFF, ID_BUFF, MAIN_BUFF, BUFF_COUNT
 };
 
-constexpr int DOCS_PER_SPLIT_FILE = 10000;
-constexpr int TERMS_PER_SPLIT_FILE = 1000;
+constexpr int DOCS_PER_SPLIT_FILE = 1000000;
+constexpr int TERMS_PER_SPLIT_FILE = 10000;
 
 std::string outputDir;
 int fileCount;
@@ -22,87 +23,26 @@ std::ofstream milestoneWords;
 std::ofstream statFile;
 std::ofstream personalStatFile;
 
-// pointer dereference costs very little: https://stackoverflow.com/questions/1910712/ https://stackoverflow.com/questions/431469
-typedef struct readWriteType {
-    int buff;
-    int termCount;
-    int *perTermFileCount;
-    int **docCount;
-    int **fileNumbers;
-    bool *toWrite;
-} readWriteType;
-
-// each thread only reads buffers relevant to its zone
-void *readAndWriteSequential(void *arg) {
-    const auto data = (readWriteType *) arg;
-
-    auto &buffers = readBuffers[data->buff];
-    auto &writeBuff = *writeBuffers[data->buff];
-
-    for (int termI = 0; termI < data->termCount; termI++) {
-        const int lim = data->perTermFileCount[termI];
-        const bool shouldWrite = data->toWrite[termI];
-
-        if (data->buff == ID_BUFF) {
-            int prevDocId = -1;
-
-            for (int i = 0; i < lim; i++) {
-                const auto &count = data->docCount[termI][i];
-                const auto &fileN = data->fileNumbers[termI][i];
-                auto &buff = *buffers[fileN];
-
-                for (int j = 0; j < count; j++) {
-                    int val;
-                    buff >> val;
-
-                    if (shouldWrite) {
-                        int valToWrite = prevDocId == -1 ? val : val - prevDocId;
-                        writeBuff << valToWrite << ' ';
-                        prevDocId = val;
-                    }
-                }
-            }
-        } else { // else it's FREQ_BUFF
-            for (int i = 0; i < lim; i++) {
-                const auto &count = data->docCount[termI][i];
-                const auto &fileN = data->fileNumbers[termI][i];
-                auto &buff = *buffers[fileN];
-
-                for (int j = 0; j < count; j++) {
-                    std::string val;
-                    buff >> val;
-
-                    if (shouldWrite) {
-                        writeBuff << val << ' ';
-                    }
-                }
-            }
-        }
-    }
-
-    delete data;
-    return nullptr;
-}
-
 void KWayMerge() {
     auto st = new timespec(), et = new timespec();
+    assert(st != nullptr);
+    assert(et != nullptr);
     long double timer;
 
     start_time
 
-    std::string latestToken;
-    std::vector<int> pointers(fileCount, 0);
-    std::vector<int> totalSizes(fileCount, 0);
-    // { token-str, fileCount }
+    readBuffers = (std::ifstream ***) malloc(sizeof(std::ifstream **) * BUFF_COUNT);
+    assert(readBuffers != nullptr);
+    for (int i = 0; i < BUFF_COUNT; i++) {
+        readBuffers[i] = (std::ifstream **) malloc(sizeof(std::ifstream *) * fileCount);
+        assert(readBuffers[i] != nullptr);
+    }
+
+    // { token-str, fileNumber }
     typedef std::pair<std::string, int> nextTokenType;
     std::priority_queue<nextTokenType, std::vector<nextTokenType>, std::greater<>> currTokenId;
 
-    readBuffers = (std::ifstream ***) malloc(sizeof(std::ifstream **) * BUFF_COUNT);
-    for (int i = 0; i < BUFF_COUNT; i++) {
-        readBuffers[i] = (std::ifstream **) malloc(sizeof(std::ifstream *) * fileCount);
-    }
-    // std::cout << BUFF_COUNT * fileCount << std::endl; 4506
-
+    std::vector<int> totalSizes(fileCount, 0);
     for (auto i = 0; i < fileCount; i++) {
         auto iStr = std::to_string(i);
 
@@ -110,7 +50,7 @@ void KWayMerge() {
         readBuffers[ID_BUFF][i] = new std::ifstream(outputDir + "iid" + iStr);
         readBuffers[MAIN_BUFF][i] = new std::ifstream(outputDir + "i" + iStr);
         for (size_t j = 0; j < BUFF_COUNT; j++)
-            if (!(*readBuffers[j][i])) exit(3);
+            if (!(readBuffers[j][i] != nullptr and *readBuffers[j][i])) exit(3);
 
         auto &tempBuff = *readBuffers[MAIN_BUFF][i];
 
@@ -118,37 +58,40 @@ void KWayMerge() {
         std::string token;
         tempBuff >> token;
         currTokenId.emplace(token, i);
+        totalSizes[i]--;
+        if (!(*readBuffers[MAIN_BUFF][i])) exit(3);
     }
 
-    // as ou see at least as many docs in the current merged index,
-    // then split into a new merged index for the new term
-    int currentMergedCount = 0;
-    int termsSeen = 0;
-    int termsWritten = 0;
-
-    writeBuffers = (std::ofstream **) malloc(BUFF_COUNT * sizeof(std::ofstream *));
     // merged index{zone}, merged index main, merged index docids
     // mimain has termid-doccount, miids has docids one after the other
-    // mit, mic, mil, mib, mir, mii, mimain, miids
-
+    // mif, mimain, miids
     auto perTermDocCount = (int **) malloc(sizeof(int *) * TERMS_PER_SPLIT_FILE);
     auto perTermFileNumbers = (int **) malloc(sizeof(int *) * TERMS_PER_SPLIT_FILE);
     auto perTermFileCount = (int *) malloc(sizeof(int) * TERMS_PER_SPLIT_FILE);
     auto perTermToWrite = (bool *) malloc(sizeof(bool) * TERMS_PER_SPLIT_FILE);
+    assert(perTermFileCount != nullptr);
+    assert(perTermFileNumbers != nullptr);
+    assert(perTermDocCount != nullptr);
+    assert(perTermToWrite != nullptr);
     for (int i = 0; i < TERMS_PER_SPLIT_FILE; i++) {
         perTermDocCount[i] = (int *) malloc(sizeof(int) * fileCount);
+        assert(perTermDocCount[i] != nullptr);
         perTermFileNumbers[i] = (int *) malloc(sizeof(int) * fileCount);
+        assert(perTermFileNumbers[i] != nullptr);
     }
 
-    pthread_t threads[BUFF_COUNT];
-    int milestoneCount = 0;
     int docsSeen = 0;
+    int termsSeen = 0;
+    int termsWritten = 0;
+    std::string latestToken;
 
     auto resetVars = [&]() {
         docsSeen = termsSeen = termsWritten = 0;
         latestToken = "";
     };
 
+    int currentMergedCount = 0;
+    writeBuffers = (std::ofstream **) malloc(BUFF_COUNT * sizeof(std::ofstream *));
     auto initializeBuffer = [&]() {
         resetVars();
 
@@ -157,7 +100,8 @@ void KWayMerge() {
         writeBuffers[ID_BUFF] = new std::ofstream(outputDir + "miids" + str);
         writeBuffers[MAIN_BUFF] = new std::ofstream(outputDir + "mimain" + str);
         for (size_t i = 0; i < BUFF_COUNT; i++)
-            if (!(*writeBuffers[i])) exit(5);
+            if (!(writeBuffers[i] != nullptr and *writeBuffers[i])) exit(5);
+
         currentMergedCount++;
     };
 
@@ -166,6 +110,7 @@ void KWayMerge() {
     auto closeBuffers = [&]() {
         totalTermsWritten += termsWritten;
         std::cout << totalTermsWritten << std::endl;
+
         for (int i = 0; i < BUFF_COUNT; i++) {
             writeBuffers[i]->close();
             if (!(*writeBuffers[i])) exit(6);
@@ -173,19 +118,53 @@ void KWayMerge() {
         }
     };
 
+    int milestoneCount = 0;
     auto flushBuffers = [&](bool reInit = true) {
-        for (int buff = 0; buff < BUFF_COUNT - 1; buff++) {
-            auto threadData = new readWriteType();
-            threadData->buff = buff;
-            threadData->termCount = termsSeen;
-            threadData->docCount = perTermDocCount;
-            threadData->fileNumbers = perTermFileNumbers;
-            threadData->perTermFileCount = perTermFileCount;
-            threadData->toWrite = perTermToWrite;
-            pthread_create(&threads[buff], nullptr, readAndWriteSequential, threadData);
-        }
-        for (int buff = 0; buff < BUFF_COUNT - 1; buff++) {
-            pthread_join(threads[buff], nullptr);
+        for (int buffI = 0; buffI < BUFF_COUNT - 1; buffI++) {
+            auto &buffers = readBuffers[buffI];
+            auto &writeBuff = *writeBuffers[buffI];
+
+            for (int termI = 0; termI < termsSeen; termI++) {
+                const int lim = perTermFileCount[termI];
+                const bool shouldWrite = perTermToWrite[termI];
+
+                if (buffI == ID_BUFF) {
+                    int prevDocId = -1;
+
+                    for (int i = 0; i < lim; i++) {
+                        const auto &count = perTermDocCount[termI][i];
+                        const auto &fileN = perTermFileNumbers[termI][i];
+
+                        auto &buff = *buffers[fileN];
+
+                        for (int j = 0; j < count; j++) {
+                            int val;
+                            buff >> val;
+
+                            if (shouldWrite) {
+                                int valToWrite = prevDocId == -1 ? val : val - prevDocId;
+                                writeBuff << valToWrite << ' ';
+                                prevDocId = val;
+                            }
+                        }
+                    }
+                } else { // else it's FREQ_BUFF
+                    for (int i = 0; i < lim; i++) {
+                        const auto &count = perTermDocCount[termI][i];
+                        const auto &fileN = perTermFileNumbers[termI][i];
+                        auto &buff = *buffers[fileN];
+
+                        for (int j = 0; j < count; j++) {
+                            std::string val;
+                            buff >> val;
+
+                            if (shouldWrite) {
+                                writeBuff << val << ' ';
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (termsWritten > 0) {
@@ -193,14 +172,15 @@ void KWayMerge() {
             milestoneCount++;
         }
 
+        if (termsWritten > 0) {
+            closeBuffers();
+        }
+
         if (reInit) {
             if (termsWritten > 0) {
-                closeBuffers();
                 initializeBuffer();
             } else resetVars();
         } else {
-            if (termsWritten > 0) closeBuffers();
-
             statFile << totalTermsWritten << std::endl;
             statFile << milestoneCount << std::endl;
             personalStatFile << totalTermsWritten << std::endl;
@@ -219,10 +199,12 @@ void KWayMerge() {
         auto smallestToken = currTokenId.top().first;
 
         int currTokenDocCount = 0;
-        auto &currFileCount = perTermFileCount[termsSeen] = 0;
+        perTermFileCount[termsSeen] = 0;
+        auto &currFileCount = perTermFileCount[termsSeen];
 
         while (not currTokenId.empty() and currTokenId.top().first == smallestToken) {
             int fileN = perTermFileNumbers[termsSeen][currFileCount] = currTokenId.top().second;
+
             int docCountForThisFile;
             (*readBuffers[MAIN_BUFF][fileN]) >> docCountForThisFile;
             perTermDocCount[termsSeen][currFileCount] = docCountForThisFile;
@@ -231,6 +213,7 @@ void KWayMerge() {
             currTokenId.pop();
             currFileCount++;
         }
+
         docsSeen += currTokenDocCount;
 
         bool actualWrite = currTokenDocCount > 4;
@@ -239,11 +222,10 @@ void KWayMerge() {
         for (int i = 0; i < currFileCount; i++) {
             int fileN = perTermFileNumbers[termsSeen][i];
 
-            totalSizes[fileN]--;
-
             if (totalSizes[fileN] > 0) {
                 std::string token;
                 (*readBuffers[MAIN_BUFF][fileN]) >> token;
+                totalSizes[fileN]--;
                 currTokenId.emplace(token, fileN);
             }
         }
@@ -275,6 +257,10 @@ void KWayMerge() {
     for (int i = 0; i < BUFF_COUNT; i++) {
         for (int j = 0; j < fileCount; j++) {
             readBuffers[i][j]->close();
+            char c = readBuffers[i][j]->peek();
+
+            assert(c == -1);
+
             if (!(*readBuffers[i][j])) exit(7);
             delete readBuffers[i][j];
         }
@@ -283,6 +269,10 @@ void KWayMerge() {
         free(readBuffers[i]);
     }
     free(readBuffers);
+
+    statFile.close();
+    personalStatFile.close();
+    if (!personalStatFile or !statFile) exit(49);
 
     end_time
     std::cout << "Time taken to merge indexes and create split sorted files " << timer << std::endl;

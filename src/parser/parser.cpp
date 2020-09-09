@@ -38,12 +38,15 @@ void writeIndex(const data_type *allDataP, const int fileNum) {
             const auto &freq = doc_data.second;
             idBuff << docid << ' ';
 
+            bool seen = false;
             for (int i = 0; i < ZONE_COUNT; i++) {
                 if (freq[i]) {
+                    seen = true;
                     if (i == 0) freqBuffer << freq[i];
                     else freqBuffer << zoneFirstLetter[i] << freq[i];
                 }
             }
+            assert(seen);
             freqBuffer << ' ';
         }
     }
@@ -110,6 +113,7 @@ std::ofstream docTitlesOutput;
 
 struct timespec *st = new timespec(), *et = new timespec();
 int currCheck = 0;
+int DOC_ID = 0;
 
 constexpr int MX_THREADS = 10000;
 pthread_t threads[MX_THREADS];
@@ -120,11 +124,15 @@ memory_type *globalMemory;
 
 void allocate_mem() {
     globalMemory = (memory_type *) malloc(sizeof(memory_type));
+    assert(globalMemory != nullptr);
     globalMemory->store = (WikiPage **) malloc(sizeof(WikiPage *) * MX_MEM);
+    assert(globalMemory->store != nullptr);
     globalMemory->size = 0;
     globalMemory->checkpoint_num = currCheck;
     globalMemory->alldata = new data_type();
+    assert(globalMemory->alldata != nullptr);
     globalMemory->processor = new Preprocessor();
+    assert(globalMemory->processor != nullptr);
 }
 
 WikiPage::WikiPage(xml::parser &p) {
@@ -167,6 +175,7 @@ WikiPage::WikiPage(xml::parser &p) {
                 break;
         }
     }
+    assert(false);
 }
 
 // KEEP lowercase
@@ -179,13 +188,13 @@ const std::vector<std::string> TEXT_REFERENCES = {"== references ==", "==referen
 
 inline void
 processText(memory_type *memory, data_type &all_data, const int docid, const int zone, const std::string &text,
-            int start, int end) {
+            size_t start, size_t end) {
     totalTokenCount += memory->processor->processText(all_data, docid, zone, text, start, end);
 }
 
-int extractInfobox(const WikiPage *page, const std::string &text, const int start) {
+size_t extractInfobox(const WikiPage *page, const std::string &text, const size_t start) {
     int cnt = 0;
-    int end = start;
+    size_t end = start;
 
     while (end < text.size() - 1) {
         if (text[end] == '{' and text[end + 1] == '{') {
@@ -201,7 +210,6 @@ int extractInfobox(const WikiPage *page, const std::string &text, const int star
         } else end++;
     }
 
-    // TODO: remove this check later
     if (cnt != 0) {
         failedFiles << "!" << page->title << '\n';
         end = text.size() - 1;
@@ -210,8 +218,8 @@ int extractInfobox(const WikiPage *page, const std::string &text, const int star
     return end;
 }
 
-int extractCategory(const std::string &text, const int start) {
-    int end = start;
+size_t extractCategory(const std::string &text, const size_t start) {
+    size_t end = start;
 
     while (end < text.size() - 1) {
         if (text[end] == ']' and text[end + 1] == ']') {
@@ -224,8 +232,8 @@ int extractCategory(const std::string &text, const int start) {
     return end;
 }
 
-int extractExternalLinks(const std::string &text, const int start) {
-    int end = start;
+size_t extractExternalLinks(const std::string &text, const size_t start) {
+    size_t end = start;
 
     // assume external links are followed by categorical information
     while (end < text.size() - 1 and not Preprocessor::fast_equals(text, TEXT_CATEGORY, end + 1)) {
@@ -235,8 +243,8 @@ int extractExternalLinks(const std::string &text, const int start) {
     return end;
 }
 
-int extractReferences(const std::string &text, int start) {
-    int end = start;
+size_t extractReferences(const std::string &text, size_t start) {
+    size_t end = start;
 
     // assume external links are followed by categorical information
     while (end < text.size() - 1 and not Preprocessor::fast_equals(text, TEXT_EXTERNAL_LINKS, end + 1) and
@@ -253,9 +261,9 @@ void extractData(memory_type *mem, WikiPage *page) {
     auto &all_data = *mem->alldata;
     std::string bodyText;
 
-    for (int i = 0; i < text.size(); i++) {
-        int end = -1;
-        int start = i;
+    for (size_t i = 0; i < text.size(); i++) {
+        size_t end = -1;
+        size_t start = i;
         int zone = -1;
 
         if (Preprocessor::fast_equals(text, TEXT_INFOBOX, i)) {
@@ -284,7 +292,8 @@ void extractData(memory_type *mem, WikiPage *page) {
         }
     }
 
-    processText(mem, all_data, docid, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
+    if (not bodyText.empty()) processText(mem, all_data, docid, TEXT_ZONE, bodyText, 0, bodyText.size() - 1);
+    assert(not page->title.empty());
     processText(mem, all_data, docid, TITLE_ZONE, page->title, 0, page->title.size() - 1);
 }
 
@@ -304,21 +313,18 @@ void parseWikiSiteInfo(xml::parser &p) {
 
 long double timer;
 
-inline int get_docid(int threadNum, int docIdx) {
-    return threadNum * MX_MEM + docIdx;
-}
-
 void *thread_checkpoint(void *arg) {
     auto mem = (memory_type *) arg;
     long double timer;
     auto *st = new timespec(), *et = new timespec();
+    assert(st != nullptr);
+    assert(et != nullptr);
 
     start_time
 
-    int sum = 0;
+    long long sum = 0;
     for (int i = 0; i < mem->size; i++) {
         auto &page = mem->store[i];
-        page->docid = get_docid(mem->checkpoint_num, i);
         sum += page->text.size();
         extractData(mem, page);
     }
@@ -356,11 +362,15 @@ void checkpoint() {
     // needs to be done sequentially
     for (int i = 0; i < size; i++) {
         auto &page = globalMemory->store[i];
+        page->docid = DOC_ID;
         docTitlesOutput << page->title << '\n';
+        DOC_ID++;
     }
     totalDocCount += size;
 
-    pthread_create(&threads[threadCount], nullptr, thread_checkpoint, globalMemory);
+    assert(threadCount < MX_THREADS);
+    int res = pthread_create(&threads[threadCount], nullptr, thread_checkpoint, globalMemory);
+    assert(res == 0);
     threadCount++;
 
     allocate_mem();
@@ -391,7 +401,9 @@ void parseWikiObject(xml::parser &p) {
             continue;
         }
 
-        globalMemory->store[globalMemory->size++] = page;
+        assert(globalMemory->size < MX_MEM);
+        globalMemory->store[globalMemory->size] = page;
+        globalMemory->size++;
 
         if (globalMemory->size == MX_MEM) {
             checkpoint();
@@ -403,6 +415,8 @@ void parseWikiObject(xml::parser &p) {
 
 int main(int argc, char *argv[]) {
     auto *stt = new timespec(), *ett = new timespec();
+    assert(stt != nullptr);
+    assert(ett != nullptr);
     clock_gettime(CLOCK_MONOTONIC, stt);
 
     std::ios_base::sync_with_stdio(false);
@@ -421,12 +435,14 @@ int main(int argc, char *argv[]) {
 
     try {
         allocate_mem();
+
         int fileI = 1;
 
-        const auto &useFiles = fileNames2;
+        const auto &useFiles = fileNames;
 
         for (const auto &filePath : useFiles) {
             std::ifstream ifs(filePath);
+            if (!ifs) exit(12);
             // our xml is in the namespace denoted by the xmlns attribute in the XML file
             // we don't want attributes or namespace declarations
 
@@ -442,12 +458,15 @@ int main(int argc, char *argv[]) {
 
             std::cout << "Finished parsing the xml " << filePath << " (" << fileI << "/" << (useFiles.size()) << ")"
                       << std::endl;
+
             ifs.close();
+            if (!ifs) exit(13);
             fileI++;
         }
 
         for (int thread = 0; thread < threadCount; thread++) {
-            pthread_join(threads[thread], nullptr);
+            int res = pthread_join(threads[thread], nullptr);
+            assert(res == 0);
         }
 
         std::ofstream stats(statFile, std::ios_base::out);
@@ -472,6 +491,7 @@ int main(int argc, char *argv[]) {
 
     docTitlesOutput.close();
     if (!docTitlesOutput) exit(4);
+
     clock_gettime(CLOCK_MONOTONIC, ett);
     long double global_time = calc_time(stt, ett);
     std::cout << "Total time taken " << global_time << std::endl;

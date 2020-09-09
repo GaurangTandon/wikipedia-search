@@ -1,7 +1,5 @@
 #include "../bzip2/bzlib.h"
 #include <stdio.h>
-#include <iostream>
-#include "../headers/common.h"
 #include <cassert>
 
 // number of characters in index file is around 1M using 1000 records

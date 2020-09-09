@@ -65,6 +65,7 @@ Preprocessor::Preprocessor() {
 
     trie = FastTrie();
     commonWord = (sb_symbol *) malloc(MAX_WORD_LEN * sizeof(sb_symbol));
+    assert(commonWord != nullptr);
 }
 
 
@@ -119,14 +120,14 @@ inline std::string Preprocessor::stemming(const sb_symbol *word, const int len) 
     return ret;
 }
 
-inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text, int start, int end) {
+inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string &text, size_t start, size_t end) {
     // tokenize
     // stopwords removal
     // stemmer
 
     std::vector<std::string> stemmedTokens;
 
-    for (int left = start; left <= end; left++) {
+    for (size_t left = start; left <= end; left++) {
         if (not validChar(text[left])) continue;
 
         trie.start(text[left]);
@@ -134,7 +135,7 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
         bool startsNum = isnum(text[left]);
         bool hasNumber = startsNum;
         bool hasAlpha = not startsNum;
-        int right = left;
+        size_t right = left;
 
         while (right < end and validChar(text[right + 1])) {
             right++;
@@ -144,13 +145,13 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
             hasAlpha = hasAlpha or (not numHaiKya);
         }
 
-        int word_len = right - left + 1;
+        size_t word_len = right - left + 1;
         bool dontProcess =
-                word_len > MAX_WORD_LEN or trie.is_end_string() or word_len < MIN_WORD_LEN or (startsNum and hasAlpha);
+                word_len > MAX_WORD_LEN or trie.is_end_string() or word_len < MIN_WORD_LEN or
+                (startsNum and hasAlpha) or (not hasAlpha and hasNumber and word_len >= 14);
 
-        // >= 2 since a single letter word is 1. too vague 2. gets stemmed into an empty string by stemmer
         if (not dontProcess) {
-            for (int i = 0; i < word_len; i++) {
+            for (size_t i = 0; i < word_len; i++) {
                 commonWord[i] = text[i + left];
             }
 
@@ -169,8 +170,8 @@ inline std::vector<std::string> Preprocessor::getStemmedTokens(const std::string
 }
 
 int
-Preprocessor::processText(data_type &alldata, const int docid, const int zone, const std::string &text, int start,
-                          int end) {
+Preprocessor::processText(data_type &alldata, const int docid, const int zone, const std::string &text, size_t start,
+                          size_t end) {
     auto stemmedTokens = getStemmedTokens(text, start, end);
 
     for (auto &term : stemmedTokens) {
@@ -185,7 +186,7 @@ Preprocessor::processText(data_type &alldata, const int docid, const int zone, c
 }
 
 inline bool Preprocessor::fast_equals(const std::string &src, const std::string &target, int pos) {
-    int j = 0, i = pos;
+    size_t j = 0, i = pos;
 
     while (i < src.size()) {
         if (src[i] != target[j]) return false;
