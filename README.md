@@ -12,6 +12,17 @@ Blazingly fast search for wikipedia, faster than google, deployed on aws
   - `make clean`: to clean all binaries from this project.
   - `make clean_full`: (DANGER) will clean all dependencies' binaries as well.
 
+### Running without `sudo`
+
+1. Create a new directory `libstudbin` somewhere in your home/non-sudo directory.
+2. When installing libstudxml, instead of `./configure; make; sudo make install`, do `./configure /path/to/libstudbin; make; make install`
+3. You should find a file `libstudxml.a` inside `libstudbin/lib`. In this project's Makefile, update the path to `LIBSTUDXML_EXE` with this file's path.
+4. Finally, replace `$(CXX)` with `$(CXX) -I/path/to/libstudbin/include` in the Makefile in both runner and searcher targets.
+
+### Runnning on older compilers
+
+You may need to append `--std=c++14` on the compilation command.
+
 ## Running
 
 Use src/index.sh and src/search.sh. Usage is in file comments.

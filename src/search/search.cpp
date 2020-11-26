@@ -60,6 +60,7 @@ int findTermFreq(const std::string &freqStr, int zone) {
 
     numgen
 
+    if (zone == TITLE_ZONE) num = num > 1 ? 1 : num;
     return num;
 }
 
@@ -321,20 +322,21 @@ void readAndProcessQuery(std::ifstream &inputFile, std::ofstream &outputFile) {
 
     int i = 0;
     for (auto &result : outputResults) {
-        outputFile << scores[i] << " ";
-        outputFile << result.first << "," << result.second << std::endl;
+        outputFile << result.first << ", " << result.second << std::endl;
         i++;
     }
 
     end_time
 
-    outputFile << timer << ", " << (timer / K) << "\n\n";
+    outputFile << timer << "\n\n";
 
 }
 
 int main(int argc, char *argv[]) {
-    assert(argc == 3);
+    assert(argc == 4);
 
+    int queryCount = std::stoi(argv[3]);
+        
     outputDir = std::string(argv[1]) + "/";
 
     std::ifstream statFile(outputDir + "stat.txt");
@@ -366,10 +368,7 @@ int main(int argc, char *argv[]) {
     auto queryFilePathStr = std::string(queryFilePath);
 
     std::ifstream queryFile(queryFilePathStr);
-    std::ofstream outputFile("queries_op.txt");
-
-    int queryCount;
-    queryFile >> queryCount;
+    std::ofstream outputFile("2018101091_queries_op.txt");
 
     for (int qI = 0; qI < queryCount; qI++) {
         readAndProcessQuery(queryFile, outputFile);
