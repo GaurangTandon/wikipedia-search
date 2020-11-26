@@ -1,6 +1,0 @@
-- make a cache of stemmer; pystemmer does that: https://github.com/snowballstem/pystemmer/blob/master/docs/quickstart.txt
-- search is very slow because of the compressed dump, even in the profiler, most samples that are taken are taken of the BZ2_readChar
-- do thresholding on two wikipedia pages presence
-- use champion list to speed up search
-- after all this it might be possible that index size < 1/4th without actual compression - useful for search speed up
-- why is it broken on t:world cup
