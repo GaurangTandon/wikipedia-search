@@ -1,6 +1,6 @@
 # wikipedia-search
 
-Blazingly fast search for wikipedia, faster than google, deployed on aws
+Blazingly fast search for wikipedia
 
 ## Build
 
@@ -43,7 +43,7 @@ If you do not specify a category, it is assumed to be the body by default.
 
 ## Stats
 
-On the 680MB dump, this takes roughly 60secs to do the complete indexing, and around 6secs per search query. The complete inverted index size is roughly 67M.
+TODO
 
 ## Information
 
@@ -51,6 +51,6 @@ Document id starts from zero. Every thread gets assigned `[BLOCK * tI, (BLOCK + 
 
 ## Dependencies
 
-1. `bzip2`: v1.0.8 ([link](https://www.sourceware.org/bzip2))
+1. `bzip2`: v1.0.8 ([link](https://www.sourceware.org/bzip2)) [not a dependency in the latest version]
 2. `libstemmer_c`: v2.0.0 ([link](https://snowballstem.org))
 3. `libstudxml`: v1.0.1 ([link](https://www.codesynthesis.com/projects/libstudxml/))
